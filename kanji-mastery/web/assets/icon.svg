@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#171D2E"/>
+  <circle cx="386" cy="126" r="58" fill="#FF725E"/>
+  <path d="M128 112h214v44H128zm0 88h214v44H128zm0 88h214v44H128zm0 88h214v44H128z" fill="#F7F2E8" opacity=".18"/>
+  <text x="256" y="350" text-anchor="middle" font-size="258" font-family="serif" font-weight="700" fill="#F7F2E8">漢</text>
+</svg>
