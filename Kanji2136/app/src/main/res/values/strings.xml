@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">상용한자 2136</string>
+    <!-- Google 공식 테스트용 AdMob ID. 출시 전에 반드시 실제 ID로 교체하세요. -->
+    <string name="admob_app_id">ca-app-pub-3940256099942544~3347511713</string>
+    <string name="admob_banner_id">ca-app-pub-3940256099942544/6300978111</string>
+    <string name="admob_interstitial_id">ca-app-pub-3940256099942544/1033173712</string>
+</resources>

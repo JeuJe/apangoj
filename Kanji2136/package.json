@@ -1,0 +1,17 @@
+{
+  "name": "joyo-kanji-2136-premium",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "무료 광고 + 12,000원 평생 프리미엄 구조의 일본 상용한자 2,136자 Android 앱",
+  "scripts": {
+    "generate:data": "node tools/generate-kanji-data.mjs",
+    "validate": "node tools/validate.mjs && node tools/smoke-ui.mjs",
+    "build:apk": "gradle assembleDebug"
+  },
+  "devDependencies": {
+    "@seyoungsong/hanjadict": "0.4.5",
+    "jsdom": "26.1.0",
+    "kanji": "0.19.3"
+  }
+}
