@@ -10,7 +10,7 @@ android {
         applicationId 'com.juhyeok.kanji2136'
         minSdk 23
         targetSdk 35
-        versionCode 2
+        versionCode 10101
         versionName '2.0.0'
     }
 
