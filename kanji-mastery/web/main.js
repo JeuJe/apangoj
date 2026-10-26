@@ -20,11 +20,21 @@
     }
   })
   const BY_ID = new Map(ITEMS.map((item) => [item.id, item]))
+  const BY_CHAR = new Map(ITEMS.map((item) => [item.char, item]))
   const EXAMPLES = window.KANJI_EXAMPLES || {}
   const LEVELS = ["N5", "N4", "N3", "N2", "N1"]
   const LEVEL_NAMES = { N5: "입문", N4: "초급", N3: "중급", N2: "중상급", N1: "상급" }
   const STORAGE_KEY = "kanji2136.progress.v1"
   const DAY = 86400000
+  const KANGXI_RADICALS = [..."一丨丶丿乙亅二亠人儿入八冂冖冫几凵刀力勹匕匚匸十卜卩厂厶又口囗土士夂夊夕大女子宀寸小尢尸屮山巛工己巾干幺广廴廾弋弓彐彡彳心戈戶手支攴文斗斤方无日曰月木欠止歹殳毋比毛氏气水火爪父爻爿片牙牛犬玄玉瓜瓦甘生用田疋疒癶白皮皿目矛矢石示禸禾穴立竹米糸缶网羊羽老而耒耳聿肉臣自至臼舌舛舟艮色艸虍虫血行衣襾見角言谷豆豕豸貝赤走足身車辛辰辵邑酉釆里金長門阜隶隹雨靑非面革韋韭音頁風飛食首香馬骨高髟鬥鬯鬲鬼魚鳥鹵鹿麥麻黃黍黑黹黽鼎鼓鼠鼻齊齒龍龜龠"]
+  const PART_VARIANTS = {
+    "亻": "人", "𠆢": "人", "刂": "刀", "忄": "心", "⺗": "心", "扌": "手",
+    "氵": "水", "氺": "水", "灬": "火", "爫": "爪", "牜": "牛", "犭": "犬",
+    "王": "玉", "礻": "示", "衤": "衣", "糹": "糸", "纟": "糸", "罒": "网",
+    "⺲": "网", "艹": "艸", "⺮": "竹", "辶": "辵", "⻌": "辵", "⺼": "肉",
+    "钅": "金", "飠": "食", "饣": "食", "門": "門", "门": "門", "车": "車",
+    "贝": "貝", "见": "見", "马": "馬", "鱼": "魚", "鸟": "鳥"
+  }
 
   const state = {
     route: "home",
@@ -33,7 +43,9 @@
     status: "ALL",
     query: "",
     listLimit: 100,
+    showListReadings: true,
     detailId: null,
+    partDetail: null,
     quizMode: "practice",
     quizLevel: "N5",
     quizCount: 20,
@@ -45,7 +57,8 @@
     favorites: [],
     sessions: [],
     streak: { current: 0, best: 0, lastDate: null },
-    diagnostic: null
+    diagnostic: null,
+    preferences: { showListReadings: true }
   })
 
   function loadStore() {
@@ -57,6 +70,7 @@
   }
 
   let store = loadStore()
+  state.showListReadings = store.preferences?.showListReadings !== false
 
   function saveStore() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(store))
@@ -67,6 +81,57 @@
     return String(value ?? "").replace(/[&<>'"]/g, (char) => ({
       "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"
     }[char]))
+  }
+
+  function canonicalPart(part) {
+    return PART_VARIANTS[part] || part
+  }
+
+  function radicalPart(item) {
+    const index = Number(item.radical) - 1
+    return Number.isInteger(index) && index >= 0 ? KANGXI_RADICALS[index] || "" : ""
+  }
+
+  function linkedPartItem(part) {
+    return BY_CHAR.get(part) || BY_CHAR.get(canonicalPart(part)) || null
+  }
+
+  function explanationHtml(item, paragraph) {
+    const components = new Set([radicalPart(item), ...item.components, ...item.components.map(canonicalPart)])
+    return [...String(paragraph)].map((character) => {
+      const linked = linkedPartItem(character)
+      const clickable = character !== item.char && /\p{Script=Han}/u.test(character) && (linked || components.has(character))
+      return clickable
+        ? `<button class="inline-kanji-link" data-part="${escapeHtml(character)}" aria-label="${escapeHtml(character)} 설명 보기">${escapeHtml(character)}</button>`
+        : escapeHtml(character)
+    }).join("")
+  }
+
+  function partDetailTemplate(item) {
+    const part = state.partDetail
+    if (!part) return ""
+    const canonical = canonicalPart(part)
+    const linked = linkedPartItem(part)
+    const radical = radicalPart(item)
+    const isRadical = canonical === canonicalPart(radical)
+    const localParagraphs = item.explanation.filter((paragraph) => paragraph.includes(part) || (canonical !== part && paragraph.includes(canonical)))
+    const sourceItem = linked?.explanation?.length ? linked : item
+    const paragraphs = linked?.explanation?.length
+      ? linked.explanation.slice(0, 3)
+      : localParagraphs.length
+        ? localParagraphs
+        : [`${part}는 ${item.char}의 ${isRadical ? "부수" : "구성 요소"}로 쓰입니다.`]
+    const sourceUrl = sourceItem?.sourceUrl || item.sourceUrl
+    return `<article class="info-card part-detail-card" id="partDetailCard">
+      <div class="info-label"><span>${isRadical ? `부수 ${item.radical}번` : "구성 요소"} · ${escapeHtml(part)}</span><button class="text-button" data-action="closePart">닫기</button></div>
+      ${canonical !== part ? `<p class="part-alias">대표 부수형 ${escapeHtml(canonical)}</p>` : ""}
+      ${linked ? `<p class="part-title">${escapeHtml(linked.char)} · ${escapeHtml(linked.hun)}</p><p class="part-meaning">${escapeHtml(koreanMeaning(linked))}</p>` : ""}
+      <div class="explanation-text">${paragraphs.map((paragraph) => `<p>${explanationHtml(sourceItem || item, paragraph)}</p>`).join("")}</div>
+      <div class="part-detail-actions">
+        ${linked && linked.id !== item.id ? `<button class="btn ghost" data-detail="${linked.id}">${escapeHtml(linked.char)} 전체 상세 보기</button>` : ""}
+        <a class="source-link" href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer">사이트 원문 보기 ↗</a>
+      </div>
+    </article>`
   }
 
   function koreanMeaning(item) {
@@ -159,6 +224,7 @@
 
   function navigate(route, options = {}, push = true) {
     if (state.route !== "detail" && route === "detail") state.previousRoute = state.route
+    if (route === "detail" && options.detailId && Number(options.detailId) !== Number(state.detailId)) options.partDetail = null
     Object.assign(state, options, { route })
     activeNav(route)
     if (push) history.pushState({ route, options }, "", `#${route}`)
@@ -283,10 +349,13 @@
   function kanjiCard(item) {
     const p = progressOf(item.id)
     const dot = p.mastery >= 4 ? "mastered" : p.seen > 0 ? "learned" : ""
-    return `<button class="kanji-card" data-detail="${item.id}">
+    const reading = state.showListReadings
+      ? `<h3>#${item.id} ${escapeHtml(item.hun)}</h3><p>${escapeHtml(item.on.join(" · ") || item.kun.join(" · ") || "독음 없음")}</p>`
+      : `<h3 class="reading-mask">#${item.id} 한자명 가림</h3><p class="reading-mask">음독 가림 · 눌러서 상세 확인</p>`
+    return `<button class="kanji-card ${state.showListReadings ? "" : "is-reading-hidden"}" data-detail="${item.id}">
       <span class="master-dot ${dot}"></span>
       <span class="kanji-glyph">${item.char}</span>
-      <span><h3>#${item.id} ${escapeHtml(item.hun)}</h3><p>${escapeHtml(item.on.join(" · ") || item.kun.join(" · ") || "독음 없음")}</p><span class="mini-level">${item.level}</span></span>
+      <span>${reading}<span class="mini-level">${item.level}</span></span>
     </button>`
   }
 
@@ -306,7 +375,10 @@
       <div class="chip-row" data-chip-group="status">
         ${[["ALL","전체"],["NEW","미학습"],["LEARNING","학습 중"],["MASTERED","숙달"],["FAVORITE","즐겨찾기"]].map(([value,label]) => `<button class="chip ${state.status === value ? "is-active" : ""}" data-status="${value}">${label}</button>`).join("")}
       </div>
-      <p class="result-count">${items.length.toLocaleString()}자 중 ${visible.length.toLocaleString()}자 표시</p>
+      <div class="list-toolbar">
+        <p class="result-count">${items.length.toLocaleString()}자 중 ${visible.length.toLocaleString()}자 표시</p>
+        <button class="reading-toggle" data-action="toggleListReadings" aria-pressed="${state.showListReadings}">${state.showListReadings ? "한자명·음독 가리기" : "한자명·음독 보기"}</button>
+      </div>
       ${visible.length ? `<div class="kanji-grid">${visible.map(kanjiCard).join("")}</div>` : '<div class="empty">검색 조건에 맞는 한자가 없습니다.</div>'}
       ${visible.length < items.length ? `<button class="btn ghost full load-more" data-action="loadMore">100자 더 보기</button>` : ""}
     `
@@ -317,6 +389,8 @@
     const p = progressOf(item.id)
     const favorite = store.favorites.includes(item.id)
     const content = studyContent(item)
+    const radical = radicalPart(item)
+    const parts = [...new Set([radical, ...item.components].filter(Boolean))]
     return `
       <div class="back-row">
         <button class="icon-button" data-action="back" aria-label="뒤로">‹</button>
@@ -327,7 +401,7 @@
         <div class="detail-meta">
           <p class="eyebrow">#${item.id} · ${item.level}</p>
           <h1>${escapeHtml(item.hun)}</h1>
-          <p>${item.strokes}획 · 부수 번호 ${item.radical ?? "-"}${item.freq ? ` · 빈도 ${item.freq}위` : ""}</p>
+          <p>${item.strokes}획 · ${radical ? `<button class="meta-link" data-part="${escapeHtml(radical)}">부수 ${escapeHtml(radical)} ${item.radical}번</button>` : `부수 번호 ${item.radical ?? "-"}`}${item.freq ? ` · 빈도 ${item.freq}위` : ""}</p>
           <div class="pill-line"><span class="soft-pill">숙달 ${p.mastery}/5</span>${item.grade ? `<span class="soft-pill">일본 학년 ${item.grade}</span>` : ""}</div>
         </div>
       </section>
@@ -337,9 +411,13 @@
         <article class="info-card"><div class="info-label"><span>대표 뜻</span></div><p class="info-value">${escapeHtml(koreanMeaning(item))}</p></article>
         <article class="info-card explanation-card">
           <div class="info-label"><span>한자 모양 해설 · 원문</span><a class="source-link" href="${escapeHtml(item.sourceUrl)}" target="_blank" rel="noopener noreferrer">원문 보기 ↗</a></div>
-          <div class="explanation-text">${(item.explanation.length ? item.explanation : [kanjiExplanation(item)]).map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("")}</div>
+          <div class="explanation-text">${(item.explanation.length ? item.explanation : [kanjiExplanation(item)]).map((paragraph) => `<p>${explanationHtml(item, paragraph)}</p>`).join("")}</div>
         </article>
-        <article class="info-card"><div class="info-label"><span>구성 요소</span></div>${item.components.length ? `<div class="components">${item.components.map((part) => `<span class="component">${part}</span>`).join("")}</div>` : '<p class="info-value">기본 구성자</p>'}</article>
+        <article class="info-card part-card">
+          <div class="info-label"><span>부수 · 구성 요소</span><span>눌러서 설명 보기</span></div>
+          ${parts.length ? `<div class="components">${parts.map((part) => `<button class="component" data-part="${escapeHtml(part)}"><span>${escapeHtml(part)}</span><small>${part === radical ? `부수 ${item.radical}번` : "구성"}</small></button>`).join("")}</div>` : '<p class="info-value">기본 구성자</p>'}
+        </article>
+        ${partDetailTemplate(item)}
       </div>
       <section class="study-section">
         <div class="section-head"><h2>관련 단어</h2><span class="subtext">실전 어휘</span></div>
@@ -640,6 +718,11 @@
     if (!target) return
     if (target.dataset.nav) navigate(target.dataset.nav)
     if (target.dataset.detail) navigate("detail", { detailId: Number(target.dataset.detail) })
+    if (target.dataset.part) {
+      state.partDetail = target.dataset.part
+      render()
+      document.getElementById("partDetailCard")?.scrollIntoView?.({ behavior: "smooth", block: "center" })
+    }
     if (target.dataset.levelLink) {
       state.level = target.dataset.levelLink
       state.status = "ALL"
@@ -691,6 +774,16 @@
     if (action === "startQuiz") startQuiz("practice")
     if (action === "startDiagnostic") startQuiz("diagnostic")
     if (action === "loadMore") { state.listLimit += 100; render() }
+    if (action === "toggleListReadings") {
+      state.showListReadings = !state.showListReadings
+      store.preferences = { ...store.preferences, showListReadings: state.showListReadings }
+      saveStore()
+      render()
+    }
+    if (action === "closePart") {
+      state.partDetail = null
+      render()
+    }
     if (action === "favorite") {
       const id = Number(target.dataset.id)
       store.favorites = store.favorites.includes(id) ? store.favorites.filter((value) => value !== id) : [...store.favorites, id]
@@ -720,7 +813,7 @@
     }
     if (action === "reset") {
       if (confirm("학습 기록과 시험 결과를 모두 초기화할까요?")) {
-        store = emptyStore(); saveStore(); toast("학습 기록을 초기화했습니다."); render()
+        store = emptyStore(); state.showListReadings = true; saveStore(); toast("학습 기록을 초기화했습니다."); render()
       }
     }
   })
