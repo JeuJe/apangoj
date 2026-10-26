@@ -17,13 +17,6 @@ Kanji component trees are derived from KanjiVG data distributed with the `kanji`
 - License: Creative Commons Attribution-ShareAlike 3.0
 - Project: https://kanjivg.tagaini.net/
 
-## HanjaDict
-
-Korean 훈음 data is provided by `@seyoungsong/hanjadict`.
-
-- License: MIT
-- Package: https://www.npmjs.com/package/@seyoungsong/hanjadict
-
 ## kanji npm package
 
 The data conversion layout and bundled source readers are provided by the `kanji` npm package.
@@ -38,6 +31,8 @@ The Android WebView APK packaging tool is Nitron.
 - License: MIT
 - Package: https://www.npmjs.com/package/nitron
 
-## Study ordering reference
+## 일본어 한자 공부방
 
-The character scope and JLPT ordering reference comes from the public index pages of https://nihongokanji.com/. The app does not redistribute that site's original explanations, examples, test wording, or images.
+The character scope, JLPT ordering, Korean 훈음, representative Korean meanings and the text under “한자 모양 해설” come from https://nihongokanji.com/.
+
+These texts are stored for the owner's private study only under the site's private-copy guidance and the permission obtained by the owner. They must not be redistributed. Each kanji detail screen links to its original page. Site images, advertisements, menus and test wording are not included.

@@ -8,6 +8,8 @@ const root = path.resolve(here, "..")
 const context = { window: {} }
 vm.createContext(context)
 vm.runInContext(fs.readFileSync(path.join(root, "web/data/kanji-data.js"), "utf8"), context)
+vm.runInContext(fs.readFileSync(path.join(root, "web/data/kanji-hun.js"), "utf8"), context)
+vm.runInContext(fs.readFileSync(path.join(root, "web/data/kanji-site.js"), "utf8"), context)
 vm.runInContext(fs.readFileSync(path.join(root, "web/data/kanji-examples.js"), "utf8"), context)
 
 const db = context.window.KANJI_DB
@@ -39,6 +41,28 @@ for (const [character, rows] of Object.entries(examples || {})) {
   }
 }
 
+const hun = context.window.KANJI_HUN
+if (!hun || typeof hun !== "object") errors.push("대표 훈음 데이터 객체가 없습니다.")
+if (Object.keys(hun || {}).length !== 2136) errors.push(`대표 훈음 데이터 오류: ${Object.keys(hun || {}).length}/2136`)
+for (const item of db?.items || []) {
+  const label = hun?.[item.char]
+  if (!label) errors.push(`대표 훈음 누락: ${item.char}`)
+}
+
+const site = context.window.KANJI_SITE
+if (!site || typeof site !== "object") errors.push("사이트 원문 데이터 객체가 없습니다.")
+if (site?.meta?.total !== 2136) errors.push(`사이트 메타데이터 오류: ${site?.meta?.total}/2136`)
+if (Object.keys(site?.items || {}).length !== 2136) errors.push(`사이트 원문 데이터 오류: ${Object.keys(site?.items || {}).length}/2136`)
+for (const item of db?.items || []) {
+  const source = site?.items?.[item.char]
+  if (!source) errors.push(`사이트 원문 누락: ${item.char}`)
+  if (source?.id !== item.id) errors.push(`사이트 번호 불일치: ${item.char} ${source?.id}/${item.id}`)
+  if (!source?.hun || source.hun !== hun?.[item.char]) errors.push(`사이트 훈음 불일치: ${item.char}`)
+  if (!source?.meaning) errors.push(`사이트 대표 뜻 누락: ${item.char}`)
+  if (!Array.isArray(source?.explanation) || !source.explanation.length) errors.push(`사이트 한자 설명 누락: ${item.char}`)
+  if (!/^https:\/\/nihongokanji\.com\//.test(source?.sourceUrl || "")) errors.push(`사이트 출처 링크 오류: ${item.char}`)
+}
+
 const counts = Object.fromEntries(["N5", "N4", "N3", "N2", "N1"].map((level) => [
   level,
   db.items.filter((item) => item.level === level).length
@@ -46,7 +70,7 @@ const counts = Object.fromEntries(["N5", "N4", "N3", "N2", "N1"].map((level) => 
 const expected = { N5: 103, N4: 181, N3: 324, N2: 415, N1: 1113 }
 if (JSON.stringify(counts) !== JSON.stringify(expected)) errors.push(`분포 오류: ${JSON.stringify(counts)}`)
 
-for (const file of ["index.html", "styles.css", "main.js", "assets/icon.svg", "data/kanji-examples.js"]) {
+for (const file of ["index.html", "styles.css", "main.js", "assets/icon.svg", "data/kanji-hun.js", "data/kanji-site.js", "data/kanji-examples.js"]) {
   if (!fs.existsSync(path.join(root, "web", file))) errors.push(`파일 누락: web/${file}`)
 }
 

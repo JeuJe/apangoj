@@ -2,48 +2,24 @@ import fs from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { createRequire } from "node:module"
-import { tableData } from "@seyoungsong/hanjadict"
 
 const require = createRequire(import.meta.url)
 const here = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(here, "..")
 const kanjiPackage = path.dirname(require.resolve("kanji/package.json"))
+const target = path.join(root, "web", "data", "kanji-data.js")
 
-const sourcePages = [649, 650, 651, 652, 2285]
 const expectedCounts = { N5: 103, N4: 181, N3: 324, N2: 415, N1: 1113 }
-const koreanOverrides = { 金: "쇠 금, 성씨 김" }
+const hunSource = fs.readFileSync(path.join(root, "web", "data", "kanji-hun.js"), "utf8")
+const hunMatch = hunSource.match(/^window\.KANJI_HUN=(.*);\s*$/s)
+if (!hunMatch) throw new Error("대표 훈음 데이터 형식이 올바르지 않습니다.")
+const primaryHun = JSON.parse(hunMatch[1])
 
-function decodeHtml(value) {
-  return value
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;|&#160;/gi, " ")
-    .replace(/&quot;/gi, '"')
-    .replace(/&amp;/gi, "&")
-    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
-    .replace(/\s+/g, " ")
-    .trim()
-}
-
-async function fetchText(url) {
-  const response = await fetch(url, {
-    redirect: "follow",
-    headers: { "user-agent": "Mozilla/5.0 Kanji2136DataBuilder/1.0" }
-  })
-  if (!response.ok) throw new Error(`${url} 요청 실패: ${response.status}`)
-  return response.text()
-}
-
-async function loadStudyOrder() {
-  const indexed = new Map()
-  for (const page of sourcePages) {
-    const html = await fetchText(`https://nihongokanji.com/${page}/`)
-    for (const match of html.matchAll(/<a\b[^>]*>([\s\S]*?)<\/a>/gi)) {
-      const text = decodeHtml(match[1])
-      const item = text.match(/^(\d+)\.?\s*[「]?([\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF])[」]?$/u)
-      if (item) indexed.set(Number(item[1]), item[2])
-    }
-  }
-  const rows = [...indexed.entries()].sort((a, b) => a[0] - b[0])
+function loadStudyOrder() {
+  const source = fs.readFileSync(target, "utf8")
+  const match = source.match(/^window\.KANJI_DB=(.*);\s*$/s)
+  if (!match) throw new Error("기존 한자 데이터 형식이 올바르지 않습니다.")
+  const rows = JSON.parse(match[1]).items.map((item) => [item.id, item.char])
   if (rows.length !== 2136) throw new Error(`상용한자 순서가 ${rows.length}자입니다. 2136자가 필요합니다.`)
   rows.forEach(([index], offset) => {
     if (index !== offset + 1) throw new Error(`${offset + 1}번 한자가 누락되었습니다.`)
@@ -104,7 +80,7 @@ function kanjidicEntry(character) {
   return readJson(file)
 }
 
-const order = await loadStudyOrder()
+const order = loadStudyOrder()
 const data = order.map(([id, character]) => {
   const raw = kanjidicEntry(character)
   const misc = first(raw.misc, {})
@@ -117,7 +93,7 @@ const data = order.map(([id, character]) => {
     id,
     char: character,
     level: levelFor(id),
-    hun: koreanOverrides[character] || tableData[character] || (koreanReading ? `한자음 ${koreanReading}` : "훈음 정보 없음"),
+    hun: primaryHun[character] || (koreanReading ? `한자음 ${koreanReading}` : "훈음 정보 없음"),
     on: compactReadings(group, "ja_on"),
     kun: compactReadings(group, "ja_kun"),
     strokes: Number(first(misc.stroke_count, 0)),
@@ -143,12 +119,11 @@ const payload = {
     total: data.length,
     counts: actualCounts,
     scope: "일본 상용한자 2,136자",
-    note: "학습 순서와 JLPT 구간은 nihongokanji.com의 공개 일람을 참고했으며, 상세 정보는 KANJIDIC2·KanjiVG·HanjaDict 공개 데이터로 구성했습니다."
+    note: "학습 순서·JLPT 구간·한국 훈음은 nihongokanji.com을 사용했으며, 일본어 독음·획수·부수는 KANJIDIC2, 구성 요소는 KanjiVG를 사용했습니다."
   },
   items: data
 }
 
-const target = path.join(root, "web", "data", "kanji-data.js")
 fs.writeFileSync(target, `window.KANJI_DB=${JSON.stringify(payload)};\n`, "utf8")
 console.log(`생성 완료: ${target}`)
 console.log(actualCounts)

@@ -7,7 +7,18 @@
     return
   }
 
-  const ITEMS = DB.items
+  const HUN = window.KANJI_HUN || {}
+  const SITE = window.KANJI_SITE?.items || {}
+  const ITEMS = DB.items.map((item) => {
+    const source = SITE[item.char]
+    return {
+      ...item,
+      hun: source?.hun || HUN[item.char] || item.hun,
+      siteMeaning: source?.meaning || "",
+      explanation: source?.explanation || [],
+      sourceUrl: source?.sourceUrl || `https://nihongokanji.com/?s=${encodeURIComponent(item.char)}`
+    }
+  })
   const BY_ID = new Map(ITEMS.map((item) => [item.id, item]))
   const EXAMPLES = window.KANJI_EXAMPLES || {}
   const LEVELS = ["N5", "N4", "N3", "N2", "N1"]
@@ -56,6 +67,25 @@
     return String(value ?? "").replace(/[&<>'"]/g, (char) => ({
       "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;"
     }[char]))
+  }
+
+  function koreanMeaning(item) {
+    return item.siteMeaning || item.hun
+  }
+
+  function topicMarker(text) {
+    const lastHangul = [...String(text)].reverse().find((character) => /[가-힣]/.test(character)) || ""
+    const code = lastHangul.codePointAt(0) || 0
+    return code >= 0xac00 && code <= 0xd7a3 && (code - 0xac00) % 28 ? "은" : "는"
+  }
+
+  function kanjiExplanation(item) {
+    const on = item.on.length ? `음독 ${item.on.join(" · ")}` : "정식 음독 없음"
+    const kun = item.kun.length ? `훈독 ${item.kun.join(" · ")}` : "정식 훈독 없음"
+    const structure = item.components.length
+      ? `구성 요소는 ${item.components.join(" · ")}입니다.`
+      : "기본 글자 형태로 익히면 됩니다."
+    return `${item.char}${topicMarker(item.hun)} 한국 훈음으로 ‘${item.hun}’이며, ${item.strokes}획으로 씁니다. 일본어에서는 ${on}, ${kun}으로 읽습니다. ${structure}`
   }
 
   function shuffle(values) {
@@ -245,7 +275,7 @@
       if (state.status === "MASTERED" && p.mastery < 4) return false
       if (state.status === "FAVORITE" && !store.favorites.includes(item.id)) return false
       if (!query) return true
-      return [item.char, item.hun, item.on.join(" "), item.kun.join(" "), item.meanings.join(" "), String(item.id)]
+      return [item.char, item.hun, item.siteMeaning, item.on.join(" "), item.kun.join(" "), item.meanings.join(" "), String(item.id)]
         .some((value) => value.toLowerCase().includes(query))
     })
   }
@@ -304,7 +334,11 @@
       <div class="info-stack">
         <article class="info-card"><div class="info-label"><span>音読み · 음독</span><button class="text-button" data-speak="${escapeHtml(item.on[0] || "")}">듣기</button></div><p class="info-value">${escapeHtml(item.on.join(" · ") || "정식 음독 없음")}</p></article>
         <article class="info-card"><div class="info-label"><span>訓読み · 훈독</span><button class="text-button" data-speak="${escapeHtml(item.kun[0] || "")}">듣기</button></div><p class="info-value">${escapeHtml(item.kun.join(" · ") || "정식 훈독 없음")}</p></article>
-        <article class="info-card"><div class="info-label"><span>핵심 개념</span></div><p class="info-value">${escapeHtml(item.meanings.join(" · ") || item.hun)}</p></article>
+        <article class="info-card"><div class="info-label"><span>대표 뜻</span></div><p class="info-value">${escapeHtml(koreanMeaning(item))}</p></article>
+        <article class="info-card explanation-card">
+          <div class="info-label"><span>한자 모양 해설 · 원문</span><a class="source-link" href="${escapeHtml(item.sourceUrl)}" target="_blank" rel="noopener noreferrer">원문 보기 ↗</a></div>
+          <div class="explanation-text">${(item.explanation.length ? item.explanation : [kanjiExplanation(item)]).map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`).join("")}</div>
+        </article>
         <article class="info-card"><div class="info-label"><span>구성 요소</span></div>${item.components.length ? `<div class="components">${item.components.map((part) => `<span class="component">${part}</span>`).join("")}</div>` : '<p class="info-value">기본 구성자</p>'}</article>
       </div>
       <section class="study-section">
@@ -332,7 +366,7 @@
         <button class="btn ghost" data-detail="${Math.max(1, item.id - 1)}" ${item.id === 1 ? "disabled" : ""}>이전 한자</button>
         <button class="btn ghost" data-detail="${Math.min(2136, item.id + 1)}" ${item.id === 2136 ? "disabled" : ""}>다음 한자</button>
       </div>
-      <p class="subtext" style="margin-top:14px;text-align:center">독음·획수·부수는 KANJIDIC2 기준이며, N5 핵심 한자는 학습용 어휘와 예문을 함께 제공합니다.</p>
+      <p class="subtext" style="margin-top:14px;text-align:center">한국 훈음·대표 뜻·한자 모양 해설 출처: 일본어 한자 공부방 · 개인 학습용 저장 · 재배포 금지</p>
     `
   }
 
