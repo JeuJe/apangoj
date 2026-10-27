@@ -36,3 +36,17 @@ The Android WebView APK packaging tool is Nitron.
 The character scope, JLPT ordering, Korean 훈음, representative Korean meanings and the text under “한자 모양 해설” come from https://nihongokanji.com/.
 
 These texts are stored for the owner's private study only under the site's private-copy guidance and the permission obtained by the owner. They must not be redistributed. Each kanji detail screen links to its original page. Site images, advertisements, menus and test wording are not included.
+
+## OpenJLPT and Tatoeba
+
+Context examples and their JLPT level metadata contain data from [OpenJLPT](https://github.com/evanclan/OpenJLPT), which uses JMdict and KANJIDIC2 (EDRDG), Jonathan Waller's JLPT lists, and Tatoeba.
+
+- OpenJLPT dataset: CC BY-SA 4.0
+- Tatoeba example sentences: CC BY 2.0 FR
+- Each Tatoeba-derived example keeps its sentence ID and links to its attribution page.
+
+## Kangxi radical names
+
+The 214-radical order, stroke groups and Korean names are derived from the [Kangxi radicals table](https://en.wikipedia.org/wiki/Kangxi_radicals).
+
+- License: CC BY-SA 4.0

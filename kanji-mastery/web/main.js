@@ -22,6 +22,11 @@
   const BY_ID = new Map(ITEMS.map((item) => [item.id, item]))
   const BY_CHAR = new Map(ITEMS.map((item) => [item.char, item]))
   const EXAMPLES = window.KANJI_EXAMPLES || {}
+  const STUDY_EXTRAS = window.KANJI_STUDY_EXTRAS || { radicals: [], passages: [], examples: {} }
+  const RADICALS_BY_NUMBER = new Map((STUDY_EXTRAS.radicals || []).map((radical) => [radical.number, radical]))
+  const RADICALS_BY_CHARACTER = new Map((STUDY_EXTRAS.radicals || []).map((radical) => [radical.character, radical]))
+  const CONTEXT_EXAMPLES = STUDY_EXTRAS.examples || {}
+  const CONTEXT_PASSAGES = STUDY_EXTRAS.passages || []
   const LEVELS = ["N5", "N4", "N3", "N2", "N1"]
   const LEVEL_NAMES = { N5: "입문", N4: "초급", N3: "중급", N2: "중상급", N1: "상급" }
   const STORAGE_KEY = "kanji2136.progress.v1"
@@ -89,7 +94,15 @@
 
   function radicalPart(item) {
     const index = Number(item.radical) - 1
-    return Number.isInteger(index) && index >= 0 ? KANGXI_RADICALS[index] || "" : ""
+    return RADICALS_BY_NUMBER.get(Number(item.radical))?.character
+      || (Number.isInteger(index) && index >= 0 ? KANGXI_RADICALS[index] || "" : "")
+  }
+
+  function radicalInfo(part, number = null) {
+    return (number ? RADICALS_BY_NUMBER.get(Number(number)) : null)
+      || RADICALS_BY_CHARACTER.get(canonicalPart(part))
+      || RADICALS_BY_CHARACTER.get(part)
+      || null
   }
 
   function linkedPartItem(part) {
@@ -114,6 +127,7 @@
     const linked = linkedPartItem(part)
     const radical = radicalPart(item)
     const isRadical = canonical === canonicalPart(radical)
+    const radicalData = isRadical ? radicalInfo(part, item.radical) : radicalInfo(part)
     const localParagraphs = item.explanation.filter((paragraph) => paragraph.includes(part) || (canonical !== part && paragraph.includes(canonical)))
     const sourceItem = linked?.explanation?.length ? linked : item
     const paragraphs = linked?.explanation?.length
@@ -121,15 +135,20 @@
       : localParagraphs.length
         ? localParagraphs
         : [`${part}는 ${item.char}의 ${isRadical ? "부수" : "구성 요소"}로 쓰입니다.`]
-    const sourceUrl = sourceItem?.sourceUrl || item.sourceUrl
+    const sourceUrl = linked?.sourceUrl || (radicalData ? STUDY_EXTRAS.meta?.radicalSource : sourceItem?.sourceUrl) || item.sourceUrl
     return `<article class="info-card part-detail-card" id="partDetailCard">
       <div class="info-label"><span>${isRadical ? `부수 ${item.radical}번` : "구성 요소"} · ${escapeHtml(part)}</span><button class="text-button" data-action="closePart">닫기</button></div>
       ${canonical !== part ? `<p class="part-alias">대표 부수형 ${escapeHtml(canonical)}</p>` : ""}
-      ${linked ? `<p class="part-title">${escapeHtml(linked.char)} · ${escapeHtml(linked.hun)}</p><p class="part-meaning">${escapeHtml(koreanMeaning(linked))}</p>` : ""}
+      ${linked
+        ? `<p class="part-title">${escapeHtml(linked.char)} · ${escapeHtml(linked.hun)}</p><p class="part-meaning">${escapeHtml(koreanMeaning(linked))}</p>`
+        : radicalData
+          ? `<p class="part-title">${escapeHtml(radicalData.character)} · ${escapeHtml(radicalData.name)}</p><p class="part-meaning">강희 ${radicalData.number}번 부수 · ${radicalData.strokes}획</p>`
+          : ""}
+      ${radicalData ? `<p class="radical-note">${escapeHtml(radicalData.character)}는 ‘${escapeHtml(radicalData.name)}’으로 부르는 ${radicalData.strokes}획 부수입니다.</p>` : ""}
       <div class="explanation-text">${paragraphs.map((paragraph) => `<p>${explanationHtml(sourceItem || item, paragraph)}</p>`).join("")}</div>
       <div class="part-detail-actions">
         ${linked && linked.id !== item.id ? `<button class="btn ghost" data-detail="${linked.id}">${escapeHtml(linked.char)} 전체 상세 보기</button>` : ""}
-        <a class="source-link" href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer">사이트 원문 보기 ↗</a>
+        <a class="source-link" href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer">${linked ? "한자 원문" : radicalData ? "214부수 자료" : "사이트 원문"} 보기 ↗</a>
       </div>
     </article>`
   }
@@ -246,12 +265,29 @@
     }
   }
 
+  function furiganaToReading(value) {
+    return String(value || "").replace(/\{([^|{}]+)\|([^{}]+)\}/g, "$2")
+  }
+
+  function fallbackContextSentence(item, target) {
+    const templates = [
+      [`辞書で「${target.word}」の使い方を確認してから、文章をもう一度読み直した。`, `사전에서 ‘${target.word}’의 쓰임을 확인한 뒤 문장을 다시 읽었다.`],
+      [`先生は「${target.word}」が使われている文を例に挙げ、意味の違いを説明した。`, `선생님은 ‘${target.word}’가 쓰인 문장을 예로 들어 의미의 차이를 설명했다.`],
+      [`資料の中で「${target.word}」という表現がどのように使われているかを調べた。`, `자료에서 ‘${target.word}’라는 표현이 어떻게 쓰이는지 조사했다.`],
+      [`「${target.word}」を含む文章は、前後の文脈を意識すると理解しやすい。`, `‘${target.word}’가 포함된 문장은 앞뒤 문맥을 의식하면 이해하기 쉽다.`],
+      [`発表の準備をするため、「${target.word}」に関する資料を何度も読み返した。`, `발표를 준비하기 위해 ‘${target.word}’에 관한 자료를 여러 번 다시 읽었다.`],
+      [`筆者が「${target.word}」を選んだ理由について、グループで意見を交換した。`, `필자가 ‘${target.word}’를 선택한 이유에 관해 모둠에서 의견을 나눴다.`]
+    ]
+    const [japanese, translation] = templates[item.id % templates.length]
+    return { japanese, reading: "문맥 속 읽기를 음성으로 확인하세요.", translation, translationLabel: "해석", sourceLabel: "N2 독해형 보충 예문" }
+  }
+
   function studyContent(item) {
     const curated = EXAMPLES[item.char]
-    if (Array.isArray(curated) && curated.length >= 3) {
+    if (item.level === "N5" && Array.isArray(curated) && curated.length >= 3) {
       return {
         words: curated.slice(0, -1).map(([word, reading, meaning]) => ({ word, reading, meaning })),
-        sentence: { japanese: curated.at(-1)[0], reading: curated.at(-1)[1], translation: curated.at(-1)[2] }
+        sentence: { japanese: curated.at(-1)[0], reading: curated.at(-1)[1], translation: curated.at(-1)[2], translationLabel: "해석" }
       }
     }
 
@@ -261,18 +297,75 @@
       if (word && !words.some((entry) => entry.word === word.word && entry.reading === word.reading)) words.push(word)
       if (words.length === 2) break
     }
-    if (!words.length) {
-      words.push({ word: item.char, reading: item.on[0] || "독음 없음", meaning: item.hun })
+    const context = CONTEXT_EXAMPLES[item.char]
+    const passage = context ? CONTEXT_PASSAGES[context.passage] : null
+    if (context?.word?.includes(item.char) && !context.word.includes("〜")) {
+      words.unshift({ word: context.word, reading: context.reading, meaning: context.meaning || item.hun })
     }
-    const target = words[0]
-    return {
-      words,
-      sentence: {
-        japanese: `「${target.word}」という言葉を覚えました。`,
-        reading: `「${target.reading}」という ことばを おぼえました。`,
-        translation: `‘${target.word}’라는 단어를 외웠습니다.`
+    if (!words.length) words.push({ word: item.char, reading: item.on[0] || "독음 없음", meaning: item.hun })
+    const uniqueWords = words.filter((word, index, list) => index === list.findIndex((entry) => entry.word === word.word && entry.reading === word.reading)).slice(0, 3)
+    if (passage) {
+      const sourceUrl = passage.tatoebaId
+        ? `https://tatoeba.org/sentences/show/${passage.tatoebaId}`
+        : STUDY_EXTRAS.meta?.exampleSource
+      return {
+        words: uniqueWords,
+        sentence: {
+          japanese: passage.japanese,
+          reading: furiganaToReading(passage.furigana),
+          translation: passage.translation,
+          translationLabel: "영문 해석",
+          sourceUrl,
+          sourceLabel: `OpenJLPT ${context.level} 문맥 예문 ↗`
+        }
       }
     }
+
+    if (Array.isArray(curated) && curated.length >= 3) {
+      return {
+        words: curated.slice(0, -1).map(([word, reading, meaning]) => ({ word, reading, meaning })),
+        sentence: { japanese: curated.at(-1)[0], reading: curated.at(-1)[1], translation: curated.at(-1)[2], translationLabel: "해석" }
+      }
+    }
+
+    const target = uniqueWords[0]
+    return {
+      words: uniqueWords,
+      sentence: fallbackContextSentence(item, target)
+    }
+  }
+
+  function normalizeKana(value) {
+    return [...String(value || "").replace(/[.\-・\s]/g, "")].map((character) => {
+      const code = character.codePointAt(0)
+      return code >= 0x30a1 && code <= 0x30f6 ? String.fromCodePoint(code - 0x60) : character
+    }).join("")
+  }
+
+  function readingDetailTemplate(item, type, content) {
+    const isOn = type === "on"
+    const readings = item[type]
+    const label = isOn ? "3. 音読み · 음독 상세" : "4. 訓読み · 훈독 상세"
+    const description = isOn
+      ? "음독은 한자어와 복합어에서 주로 쓰는 중국계 읽기입니다. 읽기마다 대표 단어와 함께 소리를 확인하세요."
+      : "훈독은 일본 고유어에 한자의 뜻을 붙인 읽기입니다. 점(.) 뒤는 한자 뒤에 붙여 쓰는 오쿠리가나입니다."
+    const examples = readings.map((reading) => {
+      const normalized = normalizeKana(reading)
+      const matchedWord = content.words.find((entry) => {
+        const wordReading = normalizeKana(entry.reading)
+        return normalized && (wordReading.startsWith(normalized) || wordReading.includes(normalized))
+      })
+      const word = matchedWord || readingWord(item, reading) || { word: item.char, reading, meaning: item.hun }
+      return `<div class="reading-entry">
+        <div class="reading-entry-head"><strong>${escapeHtml(reading)}</strong><button class="text-button" data-speak="${escapeHtml(reading.replaceAll(".", ""))}">듣기</button></div>
+        <p><b>${escapeHtml(word.word)}</b> <span>${escapeHtml(word.reading)}</span> · ${escapeHtml(word.meaning)}</p>
+      </div>`
+    }).join("")
+    return `<article class="info-card reading-detail-card ${isOn ? "on-reading" : "kun-reading"}">
+      <div class="info-label"><span>${label}</span><a class="source-link" href="${escapeHtml(item.sourceUrl)}" target="_blank" rel="noopener noreferrer">원문 상세 ↗</a></div>
+      <p class="reading-guide">${description}</p>
+      ${readings.length ? `<div class="reading-entry-list">${examples}</div>` : `<p class="no-reading">정식 ${isOn ? "음독" : "훈독"}이 없습니다.</p>`}
+    </article>`
   }
 
   function countStats(items = ITEMS) {
@@ -384,12 +477,21 @@
     `
   }
 
+  function componentLabel(part, item, radical) {
+    if (part === radical) {
+      const info = radicalInfo(part, item.radical)
+      return info ? `${info.name} · ${info.strokes}획` : `부수 ${item.radical}번`
+    }
+    return linkedPartItem(part)?.hun || radicalInfo(part)?.name || "구성 요소"
+  }
+
   function detailTemplate() {
     const item = BY_ID.get(Number(state.detailId)) || ITEMS[0]
     const p = progressOf(item.id)
     const favorite = store.favorites.includes(item.id)
     const content = studyContent(item)
     const radical = radicalPart(item)
+    const radicalData = radicalInfo(radical, item.radical)
     const parts = [...new Set([radical, ...item.components].filter(Boolean))]
     return `
       <div class="back-row">
@@ -401,21 +503,21 @@
         <div class="detail-meta">
           <p class="eyebrow">#${item.id} · ${item.level}</p>
           <h1>${escapeHtml(item.hun)}</h1>
-          <p>${item.strokes}획 · ${radical ? `<button class="meta-link" data-part="${escapeHtml(radical)}">부수 ${escapeHtml(radical)} ${item.radical}번</button>` : `부수 번호 ${item.radical ?? "-"}`}${item.freq ? ` · 빈도 ${item.freq}위` : ""}</p>
+          <p>${item.strokes}획 · ${radical ? `<button class="meta-link" data-part="${escapeHtml(radical)}">부수 ${escapeHtml(radical)} ${item.radical}번${radicalData ? ` · ${escapeHtml(radicalData.name)}` : ""}</button>` : `부수 번호 ${item.radical ?? "-"}`}${item.freq ? ` · 빈도 ${item.freq}위` : ""}</p>
           <div class="pill-line"><span class="soft-pill">숙달 ${p.mastery}/5</span>${item.grade ? `<span class="soft-pill">일본 학년 ${item.grade}</span>` : ""}</div>
         </div>
       </section>
       <div class="info-stack">
-        <article class="info-card"><div class="info-label"><span>音読み · 음독</span><button class="text-button" data-speak="${escapeHtml(item.on[0] || "")}">듣기</button></div><p class="info-value">${escapeHtml(item.on.join(" · ") || "정식 음독 없음")}</p></article>
-        <article class="info-card"><div class="info-label"><span>訓読み · 훈독</span><button class="text-button" data-speak="${escapeHtml(item.kun[0] || "")}">듣기</button></div><p class="info-value">${escapeHtml(item.kun.join(" · ") || "정식 훈독 없음")}</p></article>
-        <article class="info-card"><div class="info-label"><span>대표 뜻</span></div><p class="info-value">${escapeHtml(koreanMeaning(item))}</p></article>
+        <article class="info-card"><div class="info-label"><span>1. 기본 정보 · 대표 뜻</span></div><p class="info-value">${escapeHtml(koreanMeaning(item))}</p></article>
         <article class="info-card explanation-card">
-          <div class="info-label"><span>한자 모양 해설 · 원문</span><a class="source-link" href="${escapeHtml(item.sourceUrl)}" target="_blank" rel="noopener noreferrer">원문 보기 ↗</a></div>
+          <div class="info-label"><span>2. 한자 모양 해설</span><a class="source-link" href="${escapeHtml(item.sourceUrl)}" target="_blank" rel="noopener noreferrer">원문 보기 ↗</a></div>
           <div class="explanation-text">${(item.explanation.length ? item.explanation : [kanjiExplanation(item)]).map((paragraph) => `<p>${explanationHtml(item, paragraph)}</p>`).join("")}</div>
         </article>
+        ${readingDetailTemplate(item, "on", content)}
+        ${readingDetailTemplate(item, "kun", content)}
         <article class="info-card part-card">
-          <div class="info-label"><span>부수 · 구성 요소</span><span>눌러서 설명 보기</span></div>
-          ${parts.length ? `<div class="components">${parts.map((part) => `<button class="component" data-part="${escapeHtml(part)}"><span>${escapeHtml(part)}</span><small>${part === radical ? `부수 ${item.radical}번` : "구성"}</small></button>`).join("")}</div>` : '<p class="info-value">기본 구성자</p>'}
+          <div class="info-label"><span>5. 부수 · 구성 요소</span><span>눌러서 설명 보기</span></div>
+          ${parts.length ? `<div class="components">${parts.map((part) => `<button class="component" data-part="${escapeHtml(part)}"><span>${escapeHtml(part)}</span><small>${escapeHtml(componentLabel(part, item, radical))}</small></button>`).join("")}</div>` : '<p class="info-value">기본 구성자</p>'}
         </article>
         ${partDetailTemplate(item)}
       </div>
@@ -433,7 +535,8 @@
         <article class="sentence-card">
           <p class="sentence-japanese">${escapeHtml(content.sentence.japanese)}</p>
           <p class="sentence-reading">${escapeHtml(content.sentence.reading)}</p>
-          <div class="translation"><span>해석</span><p>${escapeHtml(content.sentence.translation)}</p></div>
+          <div class="translation"><span>${escapeHtml(content.sentence.translationLabel || "해석")}</span><p>${escapeHtml(content.sentence.translation)}</p></div>
+          ${content.sentence.sourceUrl ? `<div class="sentence-source"><a class="source-link" href="${escapeHtml(content.sentence.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(content.sentence.sourceLabel || "예문 출처 ↗")}</a></div>` : ""}
         </article>
       </section>
       <div class="detail-actions">

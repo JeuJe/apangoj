@@ -1,6 +1,6 @@
 {
   "name": "joyo-kanji-2136",
-  "version": "1.3.1",
+  "version": "1.4.0",
   "private": true,
   "type": "module",
   "description": "오프라인 일본 상용한자 2,136자 학습 및 JLPT 수준진단 Android 앱",

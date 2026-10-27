@@ -11,6 +11,7 @@ vm.runInContext(fs.readFileSync(path.join(root, "web/data/kanji-data.js"), "utf8
 vm.runInContext(fs.readFileSync(path.join(root, "web/data/kanji-hun.js"), "utf8"), context)
 vm.runInContext(fs.readFileSync(path.join(root, "web/data/kanji-site.js"), "utf8"), context)
 vm.runInContext(fs.readFileSync(path.join(root, "web/data/kanji-examples.js"), "utf8"), context)
+vm.runInContext(fs.readFileSync(path.join(root, "web/data/kanji-study-extras.js"), "utf8"), context)
 
 const db = context.window.KANJI_DB
 const errors = []
@@ -39,6 +40,16 @@ for (const [character, rows] of Object.entries(examples || {})) {
   for (const row of rows || []) {
     if (!Array.isArray(row) || row.length !== 3 || row.some((value) => !String(value || "").trim())) errors.push(`예문 항목 오류: ${character}`)
   }
+}
+
+const extras = context.window.KANJI_STUDY_EXTRAS
+if (!extras || typeof extras !== "object") errors.push("추가 학습 데이터 객체가 없습니다.")
+if (extras?.radicals?.length !== 214) errors.push(`214부수 데이터 오류: ${extras?.radicals?.length}/214`)
+if (Object.keys(extras?.examples || {}).length < 1800) errors.push(`문맥 예문 데이터 부족: ${Object.keys(extras?.examples || {}).length}/2136`)
+const n2ContextCount = (db?.items || []).filter((item) => item.level === "N2" && extras?.examples?.[item.char]?.level === "N2").length
+if (n2ContextCount < 380) errors.push(`N2 문맥 예문 부족: ${n2ContextCount}/415`)
+for (const radical of extras?.radicals || []) {
+  if (!radical.character || !radical.name || !radical.number || !radical.strokes) errors.push(`부수 데이터 형식 오류: ${JSON.stringify(radical)}`)
 }
 
 const hun = context.window.KANJI_HUN
@@ -70,7 +81,7 @@ const counts = Object.fromEntries(["N5", "N4", "N3", "N2", "N1"].map((level) => 
 const expected = { N5: 103, N4: 181, N3: 324, N2: 415, N1: 1113 }
 if (JSON.stringify(counts) !== JSON.stringify(expected)) errors.push(`분포 오류: ${JSON.stringify(counts)}`)
 
-for (const file of ["index.html", "styles.css", "main.js", "assets/icon.svg", "data/kanji-hun.js", "data/kanji-site.js", "data/kanji-examples.js"]) {
+for (const file of ["index.html", "styles.css", "main.js", "assets/icon.svg", "data/kanji-hun.js", "data/kanji-site.js", "data/kanji-examples.js", "data/kanji-study-extras.js"]) {
   if (!fs.existsSync(path.join(root, "web", file))) errors.push(`파일 누락: web/${file}`)
 }
 
