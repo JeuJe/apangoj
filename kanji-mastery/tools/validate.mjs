@@ -46,6 +46,9 @@ const extras = context.window.KANJI_STUDY_EXTRAS
 if (!extras || typeof extras !== "object") errors.push("추가 학습 데이터 객체가 없습니다.")
 if (extras?.radicals?.length !== 214) errors.push(`214부수 데이터 오류: ${extras?.radicals?.length}/214`)
 if (Object.keys(extras?.examples || {}).length < 1800) errors.push(`문맥 예문 데이터 부족: ${Object.keys(extras?.examples || {}).length}/2136`)
+for (const passage of extras?.passages || []) {
+  if (!/[가-힣]/u.test(passage.translation || "")) errors.push(`한국어 예문 해석 누락: ${passage.japanese}`)
+}
 const n2ContextCount = (db?.items || []).filter((item) => item.level === "N2" && extras?.examples?.[item.char]?.level === "N2").length
 if (n2ContextCount < 380) errors.push(`N2 문맥 예문 부족: ${n2ContextCount}/415`)
 for (const radical of extras?.radicals || []) {
@@ -71,6 +74,9 @@ for (const item of db?.items || []) {
   if (!source?.hun || source.hun !== hun?.[item.char]) errors.push(`사이트 훈음 불일치: ${item.char}`)
   if (!source?.meaning) errors.push(`사이트 대표 뜻 누락: ${item.char}`)
   if (!Array.isArray(source?.explanation) || !source.explanation.length) errors.push(`사이트 한자 설명 누락: ${item.char}`)
+  for (const [key, label] of [["onDetail", "음독"], ["kunDetail", "훈독"]]) {
+    if (!Array.isArray(source?.[key]?.paragraphs) || !Array.isArray(source?.[key]?.entries)) errors.push(`사이트 ${label} 상세 형식 오류: ${item.char}`)
+  }
   if (!/^https:\/\/nihongokanji\.com\//.test(source?.sourceUrl || "")) errors.push(`사이트 출처 링크 오류: ${item.char}`)
 }
 

@@ -89,6 +89,34 @@ function explanationParagraphs(document) {
   return paragraphs
 }
 
+function detailSection(document, sectionNumber, nextSectionNumber) {
+  const heading = [...document.querySelectorAll("h2,h3,h4")]
+    .find((element) => normalizeText(element.textContent).startsWith(`${sectionNumber}.`))
+  if (!heading) return { paragraphs: [], entries: [] }
+
+  const paragraphs = []
+  const entries = []
+  let readingWordsStarted = false
+  let node = heading.nextElementSibling
+  while (node && !(/^H[234]$/.test(node.tagName) && normalizeText(node.textContent).startsWith(`${nextSectionNumber}.`))) {
+    if (node.matches("h4")) {
+      readingWordsStarted = normalizeText(node.textContent).includes("대표단어")
+    } else if (node.matches("ul,ol") && readingWordsStarted) {
+      for (const item of node.querySelectorAll(":scope > li")) {
+        const text = normalizeText(item.textContent)
+        if (text) entries.push({ text })
+      }
+    } else if (node.matches("p,h4,blockquote") && !readingWordsStarted) {
+      const clone = node.cloneNode(true)
+      clone.querySelectorAll("figure,img,figcaption,script,style,iframe,noscript").forEach((element) => element.remove())
+      const text = normalizeText(clone.textContent)
+      if (text) paragraphs.push(text)
+    }
+    node = node.nextElementSibling
+  }
+  return { paragraphs, entries }
+}
+
 function parsePost(post) {
   const title = decodedText(post.title?.rendered)
   const match = title.match(/^(\d+)\.\s*[「『](.+?)[」』]/u)
@@ -100,6 +128,8 @@ function parsePost(post) {
   const dom = new JSDOM(`<!doctype html><body>${post.content?.rendered || ""}</body>`)
   const info = basicInformation(dom.window.document)
   const explanation = explanationParagraphs(dom.window.document)
+  const onDetail = detailSection(dom.window.document, 3, 4)
+  const kunDetail = detailSection(dom.window.document, 4, 5)
   dom.window.close()
   if (!info?.hun || !info.meaning || !explanation.length) {
     throw new Error(`${id}.「${character}」 데이터 파싱 실패 (훈음=${info?.hun || "없음"}, 설명=${explanation.length}문단)`)
@@ -111,6 +141,8 @@ function parsePost(post) {
     meaning: info.meaning,
     on: info.on,
     kun: info.kun,
+    onDetail,
+    kunDetail,
     explanation,
     sourceUrl: post.link
   }

@@ -9,13 +9,21 @@
 
   const HUN = window.KANJI_HUN || {}
   const SITE = window.KANJI_SITE?.items || {}
+  function siteReadings(value, fallback) {
+    const readings = String(value || "").split(/[、,]/u).map((reading) => reading.trim()).filter(Boolean)
+    return readings.length ? readings : fallback
+  }
   const ITEMS = DB.items.map((item) => {
     const source = SITE[item.char]
     return {
       ...item,
       hun: source?.hun || HUN[item.char] || item.hun,
+      on: siteReadings(source?.on, item.on),
+      kun: siteReadings(source?.kun, item.kun),
       siteMeaning: source?.meaning || "",
       explanation: source?.explanation || [],
+      onDetail: source?.onDetail || { paragraphs: [], entries: [] },
+      kunDetail: source?.kunDetail || { paragraphs: [], entries: [] },
       sourceUrl: source?.sourceUrl || `https://nihongokanji.com/?s=${encodeURIComponent(item.char)}`
     }
   })
@@ -279,7 +287,7 @@
       [`筆者が「${target.word}」を選んだ理由について、グループで意見を交換した。`, `필자가 ‘${target.word}’를 선택한 이유에 관해 모둠에서 의견을 나눴다.`]
     ]
     const [japanese, translation] = templates[item.id % templates.length]
-    return { japanese, reading: "문맥 속 읽기를 음성으로 확인하세요.", translation, translationLabel: "해석", sourceLabel: "N2 독해형 보충 예문" }
+    return { japanese, reading: "", translation, translationLabel: "한국어 해석", sourceLabel: "N2 독해형 보충 예문" }
   }
 
   function studyContent(item) {
@@ -314,7 +322,7 @@
           japanese: passage.japanese,
           reading: furiganaToReading(passage.furigana),
           translation: passage.translation,
-          translationLabel: "영문 해석",
+          translationLabel: "한국어 해석",
           sourceUrl,
           sourceLabel: `OpenJLPT ${context.level} 문맥 예문 ↗`
         }
@@ -335,36 +343,16 @@
     }
   }
 
-  function normalizeKana(value) {
-    return [...String(value || "").replace(/[.\-・\s]/g, "")].map((character) => {
-      const code = character.codePointAt(0)
-      return code >= 0x30a1 && code <= 0x30f6 ? String.fromCodePoint(code - 0x60) : character
-    }).join("")
-  }
-
-  function readingDetailTemplate(item, type, content) {
+  function readingDetailTemplate(item, type) {
     const isOn = type === "on"
-    const readings = item[type]
+    const detail = item[`${type}Detail`]
     const label = isOn ? "3. 音読み · 음독 상세" : "4. 訓読み · 훈독 상세"
-    const description = isOn
-      ? "음독은 한자어와 복합어에서 주로 쓰는 중국계 읽기입니다. 읽기마다 대표 단어와 함께 소리를 확인하세요."
-      : "훈독은 일본 고유어에 한자의 뜻을 붙인 읽기입니다. 점(.) 뒤는 한자 뒤에 붙여 쓰는 오쿠리가나입니다."
-    const examples = readings.map((reading) => {
-      const normalized = normalizeKana(reading)
-      const matchedWord = content.words.find((entry) => {
-        const wordReading = normalizeKana(entry.reading)
-        return normalized && (wordReading.startsWith(normalized) || wordReading.includes(normalized))
-      })
-      const word = matchedWord || readingWord(item, reading) || { word: item.char, reading, meaning: item.hun }
-      return `<div class="reading-entry">
-        <div class="reading-entry-head"><strong>${escapeHtml(reading)}</strong><button class="text-button" data-speak="${escapeHtml(reading.replaceAll(".", ""))}">듣기</button></div>
-        <p><b>${escapeHtml(word.word)}</b> <span>${escapeHtml(word.reading)}</span> · ${escapeHtml(word.meaning)}</p>
-      </div>`
-    }).join("")
+    const paragraphs = (detail?.paragraphs || []).map((paragraph) => `<p class="reading-guide">${escapeHtml(paragraph)}</p>`).join("")
+    const entries = (detail?.entries || []).map((entry) => `<p class="reading-entry">${escapeHtml(entry.text)}</p>`).join("")
     return `<article class="info-card reading-detail-card ${isOn ? "on-reading" : "kun-reading"}">
       <div class="info-label"><span>${label}</span><a class="source-link" href="${escapeHtml(item.sourceUrl)}" target="_blank" rel="noopener noreferrer">원문 상세 ↗</a></div>
-      <p class="reading-guide">${description}</p>
-      ${readings.length ? `<div class="reading-entry-list">${examples}</div>` : `<p class="no-reading">정식 ${isOn ? "음독" : "훈독"}이 없습니다.</p>`}
+      ${paragraphs}
+      ${entries ? `<div class="reading-entry-list">${entries}</div>` : `<p class="no-reading">정식 ${isOn ? "음독" : "훈독"} 상세가 없습니다.</p>`}
     </article>`
   }
 
@@ -444,7 +432,7 @@
     const dot = p.mastery >= 4 ? "mastered" : p.seen > 0 ? "learned" : ""
     const reading = state.showListReadings
       ? `<h3>#${item.id} ${escapeHtml(item.hun)}</h3><p>${escapeHtml(item.on.join(" · ") || item.kun.join(" · ") || "독음 없음")}</p>`
-      : `<h3 class="reading-mask">#${item.id} 한자명 가림</h3><p class="reading-mask">음독 가림 · 눌러서 상세 확인</p>`
+      : `<h3 class="reading-mask">#${item.id}</h3>`
     return `<button class="kanji-card ${state.showListReadings ? "" : "is-reading-hidden"}" data-detail="${item.id}">
       <span class="master-dot ${dot}"></span>
       <span class="kanji-glyph">${item.char}</span>
@@ -513,8 +501,8 @@
           <div class="info-label"><span>2. 한자 모양 해설</span><a class="source-link" href="${escapeHtml(item.sourceUrl)}" target="_blank" rel="noopener noreferrer">원문 보기 ↗</a></div>
           <div class="explanation-text">${(item.explanation.length ? item.explanation : [kanjiExplanation(item)]).map((paragraph) => `<p>${explanationHtml(item, paragraph)}</p>`).join("")}</div>
         </article>
-        ${readingDetailTemplate(item, "on", content)}
-        ${readingDetailTemplate(item, "kun", content)}
+        ${readingDetailTemplate(item, "on")}
+        ${readingDetailTemplate(item, "kun")}
         <article class="info-card part-card">
           <div class="info-label"><span>5. 부수 · 구성 요소</span><span>눌러서 설명 보기</span></div>
           ${parts.length ? `<div class="components">${parts.map((part) => `<button class="component" data-part="${escapeHtml(part)}"><span>${escapeHtml(part)}</span><small>${escapeHtml(componentLabel(part, item, radical))}</small></button>`).join("")}</div>` : '<p class="info-value">기본 구성자</p>'}
@@ -526,15 +514,15 @@
         <div class="word-list">
           ${content.words.map((word) => `<article class="word-card">
             <div class="word-main"><strong>${escapeHtml(word.word)}</strong><span>${escapeHtml(word.reading)}</span></div>
-            <div class="word-side"><span>${escapeHtml(word.meaning)}</span><button class="speak-button" data-speak="${escapeHtml(word.reading)}" aria-label="${escapeHtml(word.word)} 발음 듣기">▶</button></div>
+            <div class="word-side"><span>${escapeHtml(word.meaning)}</span></div>
           </article>`).join("")}
         </div>
       </section>
       <section class="study-section">
-        <div class="section-head"><h2>예문 · 해석</h2><button class="text-button" data-speak="${escapeHtml(content.sentence.japanese)}">문장 듣기</button></div>
+        <div class="section-head"><h2>예문 · 해석</h2></div>
         <article class="sentence-card">
           <p class="sentence-japanese">${escapeHtml(content.sentence.japanese)}</p>
-          <p class="sentence-reading">${escapeHtml(content.sentence.reading)}</p>
+          ${content.sentence.reading ? `<p class="sentence-reading">${escapeHtml(content.sentence.reading)}</p>` : ""}
           <div class="translation"><span>${escapeHtml(content.sentence.translationLabel || "해석")}</span><p>${escapeHtml(content.sentence.translation)}</p></div>
           ${content.sentence.sourceUrl ? `<div class="sentence-source"><a class="source-link" href="${escapeHtml(content.sentence.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(content.sentence.sourceLabel || "예문 출처 ↗")}</a></div>` : ""}
         </article>
@@ -859,14 +847,6 @@
       updateProgress(Number(target.dataset.id), target.dataset.rate === "correct")
       toast(target.dataset.rate === "correct" ? "학습 기록에 반영했습니다." : "복습 목록에 추가했습니다.")
       render()
-    }
-    if (target.dataset.speak) {
-      if ("speechSynthesis" in window && target.dataset.speak) {
-        speechSynthesis.cancel()
-        const utterance = new SpeechSynthesisUtterance(target.dataset.speak.replace(/\./g, ""))
-        utterance.lang = "ja-JP"
-        speechSynthesis.speak(utterance)
-      } else toast("이 기기에서는 음성 재생을 지원하지 않습니다.")
     }
     const action = target.dataset.action
     if (!action) return

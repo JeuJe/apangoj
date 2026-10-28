@@ -11,9 +11,6 @@ const dom = new JSDOM(html, { url: "https://kanji2136.local/", runScripts: "outs
 const { window } = dom
 window.scrollTo = () => {}
 window.confirm = () => true
-window.speechSynthesis = { cancel() {}, speak() {} }
-window.SpeechSynthesisUtterance = class { constructor(text) { this.text = text } }
-
 window.eval(fs.readFileSync(path.join(root, "web/data/kanji-data.js"), "utf8"))
 window.eval(fs.readFileSync(path.join(root, "web/data/kanji-hun.js"), "utf8"))
 window.eval(fs.readFileSync(path.join(root, "web/data/kanji-site.js"), "utf8"))
@@ -39,7 +36,7 @@ assert(/\.kanji-grid\s*\{[^}]*repeat\(4,/s.test(fs.readFileSync(path.join(root, 
 assert(window.document.querySelector('[data-action="toggleListReadings"]'), "목록 훈음·음독 토글 누락")
 click('[data-action="toggleListReadings"]')
 assert(window.document.querySelectorAll(".kanji-card.is-reading-hidden").length === 100, "목록 훈음·음독 가리기 실패")
-assert(text().includes("한자명 가림") && text().includes("음독 가림"), "목록 가림 안내 누락")
+assert(text().includes("#1") && !text().includes("한자명 가림") && !text().includes("음독 가림"), "목록 가림 번호 표시 실패")
 click('[data-action="toggleListReadings"]')
 assert(!window.document.querySelector(".kanji-card.is-reading-hidden"), "목록 훈음·음독 다시 보기 실패")
 const input = window.document.getElementById("searchInput")
@@ -54,7 +51,11 @@ assert(window.document.querySelector(".detail-glyph"), "상세 화면 렌더링 
 assert(window.document.querySelector(".explanation-card"), "한자 설명 렌더링 실패")
 assert(window.document.querySelectorAll(".reading-detail-card").length === 2, "음독·훈독 상세 카드 누락")
 assert(text().includes("3. 音読み · 음독 상세") && text().includes("4. 訓読み · 훈독 상세"), "독음 상세 제목 누락")
-assert(text().includes("오쿠리가나"), "훈독 상세 설명 누락")
+assert(text().includes("음독은 ニチ、ジツ입니다. 특별한 구분법은 없습니다."), "한자공부방 음독 원문 누락")
+assert(text().includes("훈독은 ひ、か입니다."), "한자공부방 훈독 원문 누락")
+assert(!window.document.querySelector("[data-speak]") && !text().includes("문장 듣기") && !text().includes("발음 듣기"), "음성 재생 UI 잔존")
+assert(!text().includes("영문 해석") && text().includes("오늘은 일요일입니다."), "한국어 예문 해석 누락")
+assert(text().includes("一日いちにち 하루") && text().includes("三みっ日か 사흘/3일"), "한자공부방 대표 단어 원문 누락")
 assert(text().includes("日는 “태양”의 모습을 본따 그린 상형문자입니다."), "사이트 원문 한자 설명 렌더링 실패")
 assert(text().includes("“날 일”. 하루, 날, 태양"), "사이트 대표 뜻 렌더링 실패")
 assert(window.document.querySelector(".source-link")?.href === "https://nihongokanji.com/8/", "한자별 원문 링크 누락")
