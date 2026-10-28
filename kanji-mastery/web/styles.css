@@ -193,9 +193,9 @@ h3 { margin-bottom: 7px; font-size: 15px; }
 .part-detail-actions .btn { min-height: 40px; }
 .reading-detail-card { background: #fbfcff; }
 .reading-detail-card.kun-reading { background: #fffaf6; }
-.reading-guide { margin: 0 0 13px; color: var(--ink-2); font-size: 14px; font-weight: 650; line-height: 1.7; }
+.reading-guide { margin: 0 0 13px; color: var(--ink-2); font-size: 15px; font-weight: 650; line-height: 1.8; }
 .reading-entry-list { display: grid; gap: 8px; }
-.reading-entry { margin: 0; padding: 12px 13px; border: 1px solid #dfe3ec; border-radius: 14px; background: white; color: var(--ink-2); font-size: 13px; line-height: 1.55; }
+.reading-entry { margin: 0; padding: 12px 13px; border: 1px solid #dfe3ec; border-radius: 14px; background: white; color: var(--ink-2); font-size: 14px; line-height: 1.75; }
 .no-reading { margin: 0; padding: 12px; border-radius: 12px; background: #f1f2f5; color: var(--muted); font-size: 13px; }
 .study-section { margin-top: 24px; }
 .word-list { display: grid; gap: 9px; }
@@ -206,11 +206,9 @@ h3 { margin-bottom: 7px; font-size: 15px; }
 .word-side { display: flex; align-items: center; justify-content: flex-end; gap: 10px; color: var(--muted); font-size: 14px; line-height: 1.5; text-align: right; }
 .sentence-card { padding: 20px; border: 1px solid var(--line); border-radius: 21px; background: var(--surface); box-shadow: var(--shadow); }
 .sentence-japanese { margin-bottom: 8px; font-family: "Noto Serif JP", "Yu Mincho", serif; font-size: 19px; font-weight: 750; line-height: 1.65; word-break: keep-all; }
-.sentence-reading { margin-bottom: 16px; color: var(--accent-dark); font-size: 13px; font-weight: 750; line-height: 1.7; }
 .translation { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: start; padding-top: 14px; border-top: 1px solid var(--line); }
 .translation > span { padding: 4px 8px; border-radius: 8px; background: var(--ink); color: white; font-size: 9px; font-weight: 900; }
 .translation p { margin: 0; color: var(--ink-2); font-size: 15px; font-weight: 700; line-height: 1.7; }
-.sentence-source { display: flex; justify-content: flex-end; margin-top: 13px; }
 .detail-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
 .pager { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
 

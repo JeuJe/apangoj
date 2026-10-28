@@ -12,15 +12,19 @@ const context = { window: {} }
 vm.createContext(context)
 vm.runInContext(fs.readFileSync(target, "utf8"), context)
 const payload = context.window.KANJI_STUDY_EXTRAS
+const hunContext = { window: {} }
+vm.createContext(hunContext)
+vm.runInContext(fs.readFileSync(path.join(root, "web/data/kanji-hun.js"), "utf8"), hunContext)
+const HUN = hunContext.window.KANJI_HUN || {}
 const concurrency = 2
-const batchSize = 10
+const batchSize = 8
 const execFileAsync = promisify(execFile)
 
 async function translateBatch(texts, attempt = 1) {
   const query = texts.join("\n")
   try {
     const { stdout } = await execFileAsync("curl", [
-      "-L", "--fail", "--max-time", "30", "-sG", "https://translate.googleapis.com/translate_a/single",
+      "-L", "--fail", "--retry", "3", "--retry-all-errors", "--retry-delay", "2", "--max-time", "30", "-sG", "https://translate.googleapis.com/translate_a/single",
       "--data-urlencode", "client=gtx", "--data-urlencode", "sl=en", "--data-urlencode", "tl=ko",
       "--data-urlencode", "dt=t", "--data-urlencode", `q=${query}`
     ], { maxBuffer: 1024 * 1024 })
@@ -73,6 +77,47 @@ async function worker() {
 
 await Promise.all(Array.from({ length: concurrency }, () => worker()))
 process.stdout.write("\n")
+
+async function translateMeaning(text, attempt = 1) {
+  try {
+    const { stdout } = await execFileAsync("curl", [
+      "-L", "--fail", "--max-time", "20", "-sG", "https://api.mymemory.translated.net/get",
+      "--data-urlencode", `q=${text}`, "--data-urlencode", "langpair=en|ko"
+    ], { maxBuffer: 1024 * 1024 })
+    const translated = String(JSON.parse(stdout)?.responseData?.translatedText || "").trim()
+    return /[가-힣]/u.test(translated) ? translated : ""
+  } catch (error) {
+    if (attempt >= 4) return ""
+    await new Promise((resolve) => setTimeout(resolve, attempt * 1500))
+    return translateMeaning(text, attempt + 1)
+  }
+}
+
+const meaningEntries = Object.entries(payload.examples || {})
+  .filter(([, entry]) => entry.meaning && !/[가-힣]/u.test(entry.meaning))
+const meaningTexts = [...new Set(meaningEntries.map(([, entry]) => String(entry.meaning).trim()))]
+const translatedMeanings = new Map()
+let nextMeaning = 0
+let meaningCompleted = 0
+async function meaningWorker() {
+  while (true) {
+    const meaning = meaningTexts[nextMeaning++]
+    if (!meaning) return
+    translatedMeanings.set(meaning, await translateMeaning(meaning))
+    meaningCompleted += 1
+    if (meaningCompleted % 25 === 0 || meaningCompleted === meaningTexts.length) {
+      process.stdout.write(`\r관련 단어 뜻 한국어 번역 ${meaningCompleted}/${meaningTexts.length}`)
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100))
+  }
+}
+await Promise.all(Array.from({ length: 8 }, () => meaningWorker()))
+process.stdout.write("\n")
+for (const [character, entry] of Object.entries(payload.examples || {})) {
+  const meaning = String(entry.meaning || "").trim()
+  entry.meaning = translatedMeanings.get(meaning) || (/[가-힣]/u.test(meaning) ? meaning : HUN[character] || "뜻 확인")
+}
 payload.meta.exampleTranslation = "한국어 번역"
+payload.meta.wordMeaningTranslation = "한국어 번역 또는 한자 훈음 대체"
 payload.meta.translationSource = "Google Translate (OpenJLPT/Tatoeba 영어 원문 기반)"
 fs.writeFileSync(target, `window.KANJI_STUDY_EXTRAS=${JSON.stringify(payload)};\n`, "utf8")

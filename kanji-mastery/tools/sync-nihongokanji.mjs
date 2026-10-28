@@ -23,6 +23,34 @@ function decodedText(html) {
   return normalizeText(fragment.textContent)
 }
 
+function textWithRuby(node) {
+  const clone = node.cloneNode(true)
+  const rubyText = (ruby) => {
+    const reading = normalizeText(ruby.querySelector("rt")?.textContent)
+    const base = [...ruby.childNodes]
+      .filter((child) => !(child.nodeType === 1 && ["RT", "RP"].includes(child.tagName)))
+      .map((child) => child.textContent)
+      .join("")
+    return { base, reading }
+  }
+  for (const ruby of [...clone.querySelectorAll("ruby")]) {
+    if (!ruby.parentNode) continue
+    const group = [ruby]
+    let sibling = ruby.nextSibling
+    while (sibling && ((sibling.nodeType === 1 && sibling.tagName === "RUBY") || (sibling.nodeType === 3 && !sibling.textContent.trim()))) {
+      group.push(sibling)
+      sibling = sibling.nextSibling
+    }
+    const parts = group.filter((element) => element.nodeType === 1 && element.tagName === "RUBY").map(rubyText)
+    const base = parts.map((part) => part.base).join("")
+    const reading = parts.map((part) => part.reading).join("")
+    const replacement = clone.ownerDocument.createTextNode(reading ? `${base}(${reading})` : base)
+    ruby.parentNode.insertBefore(replacement, ruby)
+    group.forEach((element) => element.remove())
+  }
+  return normalizeText(clone.textContent)
+}
+
 async function fetchJson(url, attempt = 1) {
   try {
     const response = await fetch(url, {
@@ -81,7 +109,7 @@ function explanationParagraphs(document) {
     } else if (node.matches("p,h4,blockquote")) {
       const clone = node.cloneNode(true)
       clone.querySelectorAll("figure,img,figcaption,script,style,iframe,noscript").forEach((element) => element.remove())
-      const text = normalizeText(clone.textContent)
+      const text = textWithRuby(clone)
       if (text) paragraphs.push(text)
     }
     node = node.nextElementSibling
@@ -103,13 +131,13 @@ function detailSection(document, sectionNumber, nextSectionNumber) {
       readingWordsStarted = normalizeText(node.textContent).includes("대표단어")
     } else if (node.matches("ul,ol") && readingWordsStarted) {
       for (const item of node.querySelectorAll(":scope > li")) {
-        const text = normalizeText(item.textContent)
+        const text = textWithRuby(item)
         if (text) entries.push({ text })
       }
     } else if (node.matches("p,h4,blockquote") && !readingWordsStarted) {
       const clone = node.cloneNode(true)
       clone.querySelectorAll("figure,img,figcaption,script,style,iframe,noscript").forEach((element) => element.remove())
-      const text = normalizeText(clone.textContent)
+      const text = textWithRuby(clone)
       if (text) paragraphs.push(text)
     }
     node = node.nextElementSibling

@@ -273,8 +273,49 @@
     }
   }
 
-  function furiganaToReading(value) {
-    return String(value || "").replace(/\{([^|{}]+)\|([^{}]+)\}/g, "$2")
+  function furiganaHtml(value) {
+    const source = String(value || "")
+    const pattern = /\{([^|{}]+)\|([^{}]+)\}/g
+    let html = ""
+    let cursor = 0
+    for (const match of source.matchAll(pattern)) {
+      html += escapeHtml(source.slice(cursor, match.index))
+      html += `<ruby>${escapeHtml(match[1])}<rt>${escapeHtml(match[2])}</rt></ruby>`
+      cursor = match.index + match[0].length
+    }
+    return html + escapeHtml(source.slice(cursor))
+  }
+
+  function sentenceFuriganaHtml(japanese, reading) {
+    const source = [...String(japanese || "")]
+    const kana = [...String(reading || "").replace(/\s+/g, "")]
+    let cursor = 0
+    let html = ""
+    const isKanji = (character) => /\p{Script=Han}/u.test(character)
+    const isKana = (character) => /[\u3040-\u30ffー]/u.test(character)
+    for (let index = 0; index < source.length; index += 1) {
+      if (!isKanji(source[index])) {
+        html += escapeHtml(source[index])
+        if (kana[cursor] === source[index]) cursor += 1
+        continue
+      }
+      const start = index
+      while (index + 1 < source.length && isKanji(source[index + 1])) index += 1
+      const base = source.slice(start, index + 1).join("")
+      const anchor = source.slice(index + 1).find(isKana)
+      const anchorIndex = anchor ? kana.indexOf(anchor, cursor) : -1
+      const end = anchorIndex >= cursor ? anchorIndex : kana.length
+      const rubyReading = kana.slice(cursor, end).join("")
+      html += rubyReading ? `<ruby>${escapeHtml(base)}<rt>${escapeHtml(rubyReading)}</rt></ruby>` : escapeHtml(base)
+      cursor = end
+    }
+    return html
+  }
+
+  function sentenceHtml(sentence) {
+    if (sentence.furigana) return furiganaHtml(sentence.furigana)
+    if (sentence.reading) return sentenceFuriganaHtml(sentence.japanese, sentence.reading)
+    return escapeHtml(sentence.japanese)
   }
 
   function fallbackContextSentence(item, target) {
@@ -287,7 +328,7 @@
       [`筆者が「${target.word}」を選んだ理由について、グループで意見を交換した。`, `필자가 ‘${target.word}’를 선택한 이유에 관해 모둠에서 의견을 나눴다.`]
     ]
     const [japanese, translation] = templates[item.id % templates.length]
-    return { japanese, reading: "", translation, translationLabel: "한국어 해석", sourceLabel: "N2 독해형 보충 예문" }
+    return { japanese, translation, translationLabel: "한국어 해석" }
   }
 
   function studyContent(item) {
@@ -313,18 +354,13 @@
     if (!words.length) words.push({ word: item.char, reading: item.on[0] || "독음 없음", meaning: item.hun })
     const uniqueWords = words.filter((word, index, list) => index === list.findIndex((entry) => entry.word === word.word && entry.reading === word.reading)).slice(0, 3)
     if (passage) {
-      const sourceUrl = passage.tatoebaId
-        ? `https://tatoeba.org/sentences/show/${passage.tatoebaId}`
-        : STUDY_EXTRAS.meta?.exampleSource
       return {
         words: uniqueWords,
         sentence: {
           japanese: passage.japanese,
-          reading: furiganaToReading(passage.furigana),
+          furigana: passage.furigana,
           translation: passage.translation,
-          translationLabel: "한국어 해석",
-          sourceUrl,
-          sourceLabel: `OpenJLPT ${context.level} 문맥 예문 ↗`
+          translationLabel: "한국어 해석"
         }
       }
     }
@@ -350,7 +386,7 @@
     const paragraphs = (detail?.paragraphs || []).map((paragraph) => `<p class="reading-guide">${escapeHtml(paragraph)}</p>`).join("")
     const entries = (detail?.entries || []).map((entry) => `<p class="reading-entry">${escapeHtml(entry.text)}</p>`).join("")
     return `<article class="info-card reading-detail-card ${isOn ? "on-reading" : "kun-reading"}">
-      <div class="info-label"><span>${label}</span><a class="source-link" href="${escapeHtml(item.sourceUrl)}" target="_blank" rel="noopener noreferrer">원문 상세 ↗</a></div>
+      <div class="info-label"><span>${label}</span></div>
       ${paragraphs}
       ${entries ? `<div class="reading-entry-list">${entries}</div>` : `<p class="no-reading">정식 ${isOn ? "음독" : "훈독"} 상세가 없습니다.</p>`}
     </article>`
@@ -521,10 +557,8 @@
       <section class="study-section">
         <div class="section-head"><h2>예문 · 해석</h2></div>
         <article class="sentence-card">
-          <p class="sentence-japanese">${escapeHtml(content.sentence.japanese)}</p>
-          ${content.sentence.reading ? `<p class="sentence-reading">${escapeHtml(content.sentence.reading)}</p>` : ""}
+          <p class="sentence-japanese">${sentenceHtml(content.sentence)}</p>
           <div class="translation"><span>${escapeHtml(content.sentence.translationLabel || "해석")}</span><p>${escapeHtml(content.sentence.translation)}</p></div>
-          ${content.sentence.sourceUrl ? `<div class="sentence-source"><a class="source-link" href="${escapeHtml(content.sentence.sourceUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(content.sentence.sourceLabel || "예문 출처 ↗")}</a></div>` : ""}
         </article>
       </section>
       <div class="detail-actions">

@@ -49,6 +49,9 @@ if (Object.keys(extras?.examples || {}).length < 1800) errors.push(`문맥 예�
 for (const passage of extras?.passages || []) {
   if (!/[가-힣]/u.test(passage.translation || "")) errors.push(`한국어 예문 해석 누락: ${passage.japanese}`)
 }
+for (const [character, example] of Object.entries(extras?.examples || {})) {
+  if (!/[가-힣]/u.test(example.meaning || "")) errors.push(`한국어 관련 단어 뜻 누락: ${character}`)
+}
 const n2ContextCount = (db?.items || []).filter((item) => item.level === "N2" && extras?.examples?.[item.char]?.level === "N2").length
 if (n2ContextCount < 380) errors.push(`N2 문맥 예문 부족: ${n2ContextCount}/415`)
 for (const radical of extras?.radicals || []) {
