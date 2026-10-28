@@ -25,6 +25,8 @@
 
 `dist/app.apk`를 Android 기기로 옮겨 설치합니다. Google Play 배포용 서명이 아닌 설치 테스트용 서명 APK입니다.
 
+[최신 APK 다운로드](https://github.com/JeuJe/apangoj/raw/main/kanji-mastery/dist/app.apk)
+
 ## 실행 및 다시 빌드
 
 Node.js 18 이상과 Java 8 이상이 필요합니다. Android Studio, Android SDK, Gradle은 필요하지 않습니다.
