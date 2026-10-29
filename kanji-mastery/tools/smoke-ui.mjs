@@ -32,6 +32,7 @@ assert(window.document.querySelectorAll(".level-card").length === 5, "JLPT 카�
 
 click('[data-nav="learn"]')
 assert(window.document.querySelectorAll(".kanji-card").length === 100, "학습 목록 초기 100자 렌더링 실패")
+assert(!window.document.querySelector(".mini-level"), "목록 카드 급수 배지 잔존")
 assert(/\.kanji-grid\s*\{[^}]*repeat\(4,/s.test(fs.readFileSync(path.join(root, "web/styles.css"), "utf8")), "한자 목록 4열 CSS 누락")
 assert(window.document.querySelector('[data-action="toggleListReadings"]'), "목록 훈음·음독 토글 누락")
 click('[data-action="toggleListReadings"]')

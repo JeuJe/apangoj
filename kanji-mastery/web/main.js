@@ -488,7 +488,7 @@
     return `<button class="kanji-card ${state.showListReadings ? "" : "is-reading-hidden"}" data-detail="${item.id}">
       <span class="master-dot ${dot}"></span>
       <span class="kanji-glyph">${item.char}</span>
-      <span>${reading}<span class="mini-level">${item.level}</span></span>
+      <span>${reading}</span>
     </button>`
   }
 
