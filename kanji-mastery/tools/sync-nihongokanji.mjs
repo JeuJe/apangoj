@@ -128,13 +128,13 @@ function detailSection(document, sectionNumber, nextSectionNumber) {
   let node = heading.nextElementSibling
   while (node && !(/^H[234]$/.test(node.tagName) && normalizeText(node.textContent).startsWith(`${nextSectionNumber}.`))) {
     if (node.matches("h4")) {
-      readingWordsStarted = normalizeText(node.textContent).includes("대표단어")
+      readingWordsStarted = /대표단어|예문/u.test(normalizeText(node.textContent))
     } else if (node.matches("ul,ol") && readingWordsStarted) {
       for (const item of node.querySelectorAll(":scope > li")) {
         const text = textWithRuby(item)
         if (text) entries.push({ text })
       }
-    } else if (node.matches("p,h4,blockquote") && !readingWordsStarted) {
+    } else if (node.matches("p,blockquote") && !readingWordsStarted) {
       const clone = node.cloneNode(true)
       clone.querySelectorAll("figure,img,figcaption,script,style,iframe,noscript").forEach((element) => element.remove())
       const text = textWithRuby(clone)

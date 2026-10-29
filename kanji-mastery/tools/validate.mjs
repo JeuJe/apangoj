@@ -79,6 +79,7 @@ for (const item of db?.items || []) {
   if (!Array.isArray(source?.explanation) || !source.explanation.length) errors.push(`사이트 한자 설명 누락: ${item.char}`)
   for (const [key, label] of [["onDetail", "음독"], ["kunDetail", "훈독"]]) {
     if (!Array.isArray(source?.[key]?.paragraphs) || !Array.isArray(source?.[key]?.entries)) errors.push(`사이트 ${label} 상세 형식 오류: ${item.char}`)
+    if (!(source?.[key]?.paragraphs?.length || source?.[key]?.entries?.length)) errors.push(`사이트 ${label} 상세 내용 누락: ${item.char}`)
   }
   if (!/^https:\/\/nihongokanji\.com\//.test(source?.sourceUrl || "")) errors.push(`사이트 출처 링크 오류: ${item.char}`)
 }

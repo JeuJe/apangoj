@@ -250,11 +250,12 @@
   }
 
   function navigate(route, options = {}, push = true) {
-    if (state.route !== "detail" && route === "detail") state.previousRoute = state.route
+    if (state.route !== "detail" && route === "detail") state.previousRoute = "learn"
     if (route === "detail" && options.detailId && Number(options.detailId) !== Number(state.detailId)) options.partDetail = null
     Object.assign(state, options, { route })
     activeNav(route)
-    if (push) history.pushState({ route, options }, "", `#${route}`)
+    const hash = route === "detail" && options.detailId ? `#detail/${Number(options.detailId)}` : `#${route}`
+    if (push) history.pushState({ route, options }, "", hash)
     render()
     window.scrollTo(0, 0)
   }
@@ -316,6 +317,21 @@
     if (sentence.furigana) return furiganaHtml(sentence.furigana)
     if (sentence.reading) return sentenceFuriganaHtml(sentence.japanese, sentence.reading)
     return escapeHtml(sentence.japanese)
+  }
+
+  function readingWordTemplate(value) {
+    const text = String(value || "").trim()
+    const match = text.match(/^(.+?)\s+([가-힣].*)$/u)
+    if (!match) return `<span class="reading-word-line"><span class="reading-word-japanese">${escapeHtml(text)}</span></span>`
+    return `<span class="reading-word-line"><span class="reading-word-japanese">${escapeHtml(match[1])}</span><span class="reading-word-meaning">${escapeHtml(match[2])}</span></span>`
+  }
+
+  function readingEntryTemplate(entry) {
+    const text = String(entry?.text || "").trim()
+    const match = text.match(/^(\S+)\s+(.+)$/u)
+    if (!match || /[가-힣]/u.test(match[1])) return `<div class="reading-entry reading-entry-plain">${escapeHtml(text)}</div>`
+    const words = match[2].split(/\s*,\s*/u).map((word) => word.trim()).filter(Boolean)
+    return `<div class="reading-entry"><strong class="reading-entry-reading">${escapeHtml(match[1])}</strong><div class="reading-word-list">${words.map(readingWordTemplate).join("")}</div></div>`
   }
 
   function fallbackContextSentence(item, target) {
@@ -384,7 +400,7 @@
     const detail = item[`${type}Detail`]
     const label = isOn ? "3. 音読み · 음독 상세" : "4. 訓読み · 훈독 상세"
     const paragraphs = (detail?.paragraphs || []).map((paragraph) => `<p class="reading-guide">${escapeHtml(paragraph)}</p>`).join("")
-    const entries = (detail?.entries || []).map((entry) => `<p class="reading-entry">${escapeHtml(entry.text)}</p>`).join("")
+    const entries = (detail?.entries || []).map(readingEntryTemplate).join("")
     return `<article class="info-card reading-detail-card ${isOn ? "on-reading" : "kun-reading"}">
       <div class="info-label"><span>${label}</span></div>
       ${paragraphs}
@@ -476,28 +492,41 @@
     </button>`
   }
 
+  function learnResultsTemplate(items) {
+    const visible = items.slice(0, state.listLimit)
+    return `<div class="list-toolbar">
+        <p class="result-count">${items.length.toLocaleString()}자 중 ${visible.length.toLocaleString()}자 표시</p>
+        <button class="reading-toggle" data-action="toggleListReadings" aria-pressed="${state.showListReadings}">${state.showListReadings ? "한자명·음독 가리기" : "한자명·음독 보기"}</button>
+      </div>
+      ${visible.length ? `<div class="kanji-grid">${visible.map(kanjiCard).join("")}</div>` : '<div class="empty">검색 조건에 맞는 한자가 없습니다.</div>'}
+      ${visible.length < items.length ? `<button class="btn ghost full load-more" data-action="loadMore">100자 더 보기</button>` : ""}`
+  }
+
+  function refreshLearnResults() {
+    const results = document.getElementById("learnResults")
+    if (results) results.innerHTML = learnResultsTemplate(filteredItems())
+  }
+
   function learnTemplate() {
     const items = filteredItems()
-    const visible = items.slice(0, state.listLimit)
     return `
       <div class="page-head">
         <p class="eyebrow">KANJI LIBRARY</p>
         <h1>2,136자 학습</h1>
         <p class="subtext">한자·한국 훈음·음독·훈독으로 검색할 수 있습니다.</p>
       </div>
-      <div class="search-box"><input id="searchInput" value="${escapeHtml(state.query)}" placeholder="예: 日, 날 일, ニチ" autocomplete="off"><span class="search-icon">⌕</span></div>
+      <form class="search-box" id="searchForm" role="search">
+        <input id="searchInput" value="${escapeHtml(state.query)}" placeholder="예: 日, 날 일, ニチ" autocomplete="off" inputmode="search" aria-label="한자 검색">
+        <button type="submit" class="search-submit" aria-label="검색">⌕</button>
+        <button type="button" class="search-clear" data-action="clearSearch" aria-label="검색어 지우기">×</button>
+      </form>
       <div class="chip-row" data-chip-group="level">
         ${["ALL", ...LEVELS].map((level) => `<button class="chip ${state.level === level ? "is-active" : ""}" data-level="${level}">${level === "ALL" ? "전체" : level}</button>`).join("")}
       </div>
       <div class="chip-row" data-chip-group="status">
         ${[["ALL","전체"],["NEW","미학습"],["LEARNING","학습 중"],["MASTERED","숙달"],["FAVORITE","즐겨찾기"]].map(([value,label]) => `<button class="chip ${state.status === value ? "is-active" : ""}" data-status="${value}">${label}</button>`).join("")}
       </div>
-      <div class="list-toolbar">
-        <p class="result-count">${items.length.toLocaleString()}자 중 ${visible.length.toLocaleString()}자 표시</p>
-        <button class="reading-toggle" data-action="toggleListReadings" aria-pressed="${state.showListReadings}">${state.showListReadings ? "한자명·음독 가리기" : "한자명·음독 보기"}</button>
-      </div>
-      ${visible.length ? `<div class="kanji-grid">${visible.map(kanjiCard).join("")}</div>` : '<div class="empty">검색 조건에 맞는 한자가 없습니다.</div>'}
-      ${visible.length < items.length ? `<button class="btn ghost full load-more" data-action="loadMore">100자 더 보기</button>` : ""}
+      <div id="learnResults">${learnResultsTemplate(items)}</div>
     `
   }
 
@@ -516,7 +545,8 @@
     const content = studyContent(item)
     const radical = radicalPart(item)
     const radicalData = radicalInfo(radical, item.radical)
-    const parts = [...new Set([radical, ...item.components].filter(Boolean))]
+    const onReadings = item.on.length ? item.on.join(" · ") : "정식 음독 없음"
+    const kunReadings = item.kun.length ? item.kun.join(" · ") : "정식 훈독 없음"
     return `
       <div class="back-row">
         <button class="icon-button" data-action="back" aria-label="뒤로">‹</button>
@@ -527,33 +557,19 @@
         <div class="detail-meta">
           <p class="eyebrow">#${item.id} · ${item.level}</p>
           <h1>${escapeHtml(item.hun)}</h1>
-          <p>${item.strokes}획 · ${radical ? `<button class="meta-link" data-part="${escapeHtml(radical)}">부수 ${escapeHtml(radical)} ${item.radical}번${radicalData ? ` · ${escapeHtml(radicalData.name)}` : ""}</button>` : `부수 번호 ${item.radical ?? "-"}`}${item.freq ? ` · 빈도 ${item.freq}위` : ""}</p>
+          <p>${item.strokes}획 · ${radical ? `부수 ${escapeHtml(radical)} ${item.radical}번${radicalData ? ` · ${escapeHtml(radicalData.name)}` : ""}` : `부수 번호 ${item.radical ?? "-"}`}${item.freq ? ` · 빈도 ${item.freq}위` : ""}</p>
           <div class="pill-line"><span class="soft-pill">숙달 ${p.mastery}/5</span>${item.grade ? `<span class="soft-pill">일본 학년 ${item.grade}</span>` : ""}</div>
         </div>
       </section>
       <div class="info-stack">
-        <article class="info-card"><div class="info-label"><span>1. 기본 정보 · 대표 뜻</span></div><p class="info-value">${escapeHtml(koreanMeaning(item))}</p></article>
+        <article class="info-card"><div class="info-label"><span>1. 기본 정보 · 대표 뜻</span></div><p class="info-value">${escapeHtml(koreanMeaning(item))}</p><div class="basic-readings"><p><strong>음독 :</strong> ${escapeHtml(onReadings)}</p><p><strong>훈독 :</strong> ${escapeHtml(kunReadings)}</p></div></article>
         <article class="info-card explanation-card">
           <div class="info-label"><span>2. 한자 모양 해설</span><a class="source-link" href="${escapeHtml(item.sourceUrl)}" target="_blank" rel="noopener noreferrer">원문 보기 ↗</a></div>
           <div class="explanation-text">${(item.explanation.length ? item.explanation : [kanjiExplanation(item)]).map((paragraph) => `<p>${explanationHtml(item, paragraph)}</p>`).join("")}</div>
         </article>
         ${readingDetailTemplate(item, "on")}
         ${readingDetailTemplate(item, "kun")}
-        <article class="info-card part-card">
-          <div class="info-label"><span>5. 부수 · 구성 요소</span><span>눌러서 설명 보기</span></div>
-          ${parts.length ? `<div class="components">${parts.map((part) => `<button class="component" data-part="${escapeHtml(part)}"><span>${escapeHtml(part)}</span><small>${escapeHtml(componentLabel(part, item, radical))}</small></button>`).join("")}</div>` : '<p class="info-value">기본 구성자</p>'}
-        </article>
-        ${partDetailTemplate(item)}
       </div>
-      <section class="study-section">
-        <div class="section-head"><h2>관련 단어</h2><span class="subtext">실전 어휘</span></div>
-        <div class="word-list">
-          ${content.words.map((word) => `<article class="word-card">
-            <div class="word-main"><strong>${escapeHtml(word.word)}</strong><span>${escapeHtml(word.reading)}</span></div>
-            <div class="word-side"><span>${escapeHtml(word.meaning)}</span></div>
-          </article>`).join("")}
-        </div>
-      </section>
       <section class="study-section">
         <div class="section-head"><h2>예문 · 해석</h2></div>
         <article class="sentence-card">
@@ -823,19 +839,28 @@
     updateStreakBadge()
     const search = document.getElementById("searchInput")
     if (search) {
+      search.addEventListener("compositionstart", () => { search.dataset.composing = "true" })
+      search.addEventListener("compositionend", (event) => {
+        delete search.dataset.composing
+        state.query = event.target.value
+        state.listLimit = 100
+        refreshLearnResults()
+      })
       search.addEventListener("input", (event) => {
         state.query = event.target.value
         state.listLimit = 100
-        clearTimeout(state.searchTimer)
-        state.searchTimer = setTimeout(() => {
-          const position = state.query.length
-          render()
-          const input = document.getElementById("searchInput")
-          input?.focus()
-          input?.setSelectionRange(position, position)
-        }, 140)
+        if (event.isComposing || search.dataset.composing === "true") return
+        refreshLearnResults()
       })
     }
+    const searchForm = document.getElementById("searchForm")
+    searchForm?.addEventListener("submit", (event) => {
+      event.preventDefault()
+      const value = search.value.trim()
+      const exact = BY_CHAR.get(value)
+      if (exact) navigate("detail", { detailId: exact.id })
+      else refreshLearnResults()
+    })
   }
 
   document.addEventListener("click", (event) => {
@@ -891,6 +916,14 @@
     if (action === "startQuiz") startQuiz("practice")
     if (action === "startDiagnostic") startQuiz("diagnostic")
     if (action === "loadMore") { state.listLimit += 100; render() }
+    if (action === "clearSearch") {
+      state.query = ""
+      state.listLimit = 100
+      const input = document.getElementById("searchInput")
+      if (input) input.value = ""
+      refreshLearnResults()
+      input?.focus()
+    }
     if (action === "toggleListReadings") {
       state.showListReadings = !state.showListReadings
       store.preferences = { ...store.preferences, showListReadings: state.showListReadings }
@@ -936,8 +969,11 @@
   })
 
   window.addEventListener("popstate", () => {
-    const route = location.hash.replace("#", "") || "home"
+    const parts = location.hash.replace(/^#/, "").split("/")
+    const route = parts[0] || "home"
     state.route = route
+    if (route === "detail") state.detailId = Number(parts[1]) || state.detailId || 1
+    if (route !== "detail") state.partDetail = null
     activeNav(route)
     render()
     window.scrollTo(0, 0)
