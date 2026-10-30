@@ -62,7 +62,8 @@
     quizMode: "practice",
     quizLevel: "N5",
     quizCount: 20,
-    quiz: null
+    quiz: null,
+    contextText: ""
   }
 
   const emptyStore = () => ({
@@ -100,6 +101,19 @@
     return PART_VARIANTS[part] || part
   }
 
+  const SHAPE_PARTS = window.KANJI_RADICALS?.items || []
+  const SHAPE_PARTS_BY_FORM = new Map()
+  for (const part of SHAPE_PARTS) {
+    for (const form of [part.character, ...(part.forms || [])]) {
+      if (form) SHAPE_PARTS_BY_FORM.set(form, part)
+    }
+  }
+
+  function shapePartInfo(value) {
+    const part = String(value || "")
+    return SHAPE_PARTS_BY_FORM.get(part) || SHAPE_PARTS_BY_FORM.get(canonicalPart(part)) || null
+  }
+
   function radicalPart(item) {
     const index = Number(item.radical) - 1
     return RADICALS_BY_NUMBER.get(Number(item.radical))?.character
@@ -121,43 +135,37 @@
     const components = new Set([radicalPart(item), ...item.components, ...item.components.map(canonicalPart)])
     return [...String(paragraph)].map((character) => {
       const linked = linkedPartItem(character)
-      const clickable = character !== item.char && /\p{Script=Han}/u.test(character) && (linked || components.has(character))
-      return clickable
-        ? `<button class="inline-kanji-link" data-part="${escapeHtml(character)}" aria-label="${escapeHtml(character)} 설명 보기">${escapeHtml(character)}</button>`
-        : escapeHtml(character)
+      const shape = shapePartInfo(character) || shapePartInfo(canonicalPart(character))
+      if (character === item.char || !/\p{Script=Han}/u.test(character)) return escapeHtml(character)
+      if (linked) return `<button class="inline-kanji-link" data-detail="${linked.id}" aria-label="${escapeHtml(character)} 상세 보기">${escapeHtml(character)}</button>`
+      if (shape || components.has(character)) {
+        const part = shape || shapePartInfo(canonicalPart(character))
+        return part
+          ? `<button class="inline-part-link" data-part="${escapeHtml(part.character)}" aria-label="${escapeHtml(character)} 모양자·부수 설명 보기">${escapeHtml(character)}</button>`
+          : escapeHtml(character)
+      }
+      return escapeHtml(character)
     }).join("")
   }
 
-  function partDetailTemplate(item) {
-    const part = state.partDetail
+  function partDirectoryTemplate() {
+    if (!SHAPE_PARTS.length) return ""
+    return `<details class="part-directory">
+      <summary>모양자·부수 일람 <span>${SHAPE_PARTS.length}개</span></summary>
+      <div class="part-directory-grid">${SHAPE_PARTS.map((part) => `<button class="part-directory-item" data-part="${escapeHtml(part.character)}"><strong>${escapeHtml(part.display)}</strong><span>${escapeHtml(part.meaning)}</span></button>`).join("")}</div>
+    </details>`
+  }
+
+  function partDetailTemplate() {
+    const part = shapePartInfo(state.partDetail)
     if (!part) return ""
-    const canonical = canonicalPart(part)
-    const linked = linkedPartItem(part)
-    const radical = radicalPart(item)
-    const isRadical = canonical === canonicalPart(radical)
-    const radicalData = isRadical ? radicalInfo(part, item.radical) : radicalInfo(part)
-    const localParagraphs = item.explanation.filter((paragraph) => paragraph.includes(part) || (canonical !== part && paragraph.includes(canonical)))
-    const sourceItem = linked?.explanation?.length ? linked : item
-    const paragraphs = linked?.explanation?.length
-      ? linked.explanation.slice(0, 3)
-      : localParagraphs.length
-        ? localParagraphs
-        : [`${part}는 ${item.char}의 ${isRadical ? "부수" : "구성 요소"}로 쓰입니다.`]
-    const sourceUrl = linked?.sourceUrl || (radicalData ? STUDY_EXTRAS.meta?.radicalSource : sourceItem?.sourceUrl) || item.sourceUrl
+    const explanations = (part.explanation || []).filter((paragraph) => !/^(주의|참고)\)?$/u.test(paragraph.trim()))
     return `<article class="info-card part-detail-card" id="partDetailCard">
-      <div class="info-label"><span>${isRadical ? `부수 ${item.radical}번` : "구성 요소"} · ${escapeHtml(part)}</span><button class="text-button" data-action="closePart">닫기</button></div>
-      ${canonical !== part ? `<p class="part-alias">대표 부수형 ${escapeHtml(canonical)}</p>` : ""}
-      ${linked
-        ? `<p class="part-title">${escapeHtml(linked.char)} · ${escapeHtml(linked.hun)}</p><p class="part-meaning">${escapeHtml(koreanMeaning(linked))}</p>`
-        : radicalData
-          ? `<p class="part-title">${escapeHtml(radicalData.character)} · ${escapeHtml(radicalData.name)}</p><p class="part-meaning">강희 ${radicalData.number}번 부수 · ${radicalData.strokes}획</p>`
-          : ""}
-      ${radicalData ? `<p class="radical-note">${escapeHtml(radicalData.character)}는 ‘${escapeHtml(radicalData.name)}’으로 부르는 ${radicalData.strokes}획 부수입니다.</p>` : ""}
-      <div class="explanation-text">${paragraphs.map((paragraph) => `<p>${explanationHtml(sourceItem || item, paragraph)}</p>`).join("")}</div>
-      <div class="part-detail-actions">
-        ${linked && linked.id !== item.id ? `<button class="btn ghost" data-detail="${linked.id}">${escapeHtml(linked.char)} 전체 상세 보기</button>` : ""}
-        <a class="source-link" href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener noreferrer">${linked ? "한자 원문" : radicalData ? "214부수 자료" : "사이트 원문"} 보기 ↗</a>
-      </div>
+      <div class="info-label"><span>모양자·부수 · ${escapeHtml(part.display)}</span><button class="text-button" data-action="closePart">닫기</button></div>
+      <p class="part-title">${escapeHtml(part.display)}</p>
+      <p class="part-meaning">${escapeHtml(part.meaning)}</p>
+      ${explanations.length ? `<div class="explanation-text">${explanations.map((paragraph) => `<p>${explanationHtml({ char: "", components: [] }, paragraph)}</p>`).join("")}</div>` : ""}
+      <div class="part-detail-actions"><a class="source-link external-link" data-external-url="${escapeHtml(part.sourceUrl)}" href="${escapeHtml(part.sourceUrl)}" target="_blank" rel="noopener noreferrer">원문 보기 ↗</a></div>
     </article>`
   }
 
@@ -507,6 +515,14 @@
     if (results) results.innerHTML = learnResultsTemplate(filteredItems())
   }
 
+  function searchFormTemplate(extraClass = "") {
+    return `<form class="search-box ${extraClass}" id="searchForm" role="search">
+      <input id="searchInput" type="search" value="${escapeHtml(state.query)}" placeholder="예: 日, 날 일, ニチ" autocomplete="off" inputmode="search" enterkeyhint="search" aria-label="한자 검색">
+      <button type="submit" class="search-submit" aria-label="검색">⌕</button>
+      <button type="button" class="search-clear" data-action="clearSearch" aria-label="검색어 지우기">×</button>
+    </form>`
+  }
+
   function learnTemplate() {
     const items = filteredItems()
     return `
@@ -515,11 +531,7 @@
         <h1>2,136자 학습</h1>
         <p class="subtext">한자·한국 훈음·음독·훈독으로 검색할 수 있습니다.</p>
       </div>
-      <form class="search-box" id="searchForm" role="search">
-        <input id="searchInput" value="${escapeHtml(state.query)}" placeholder="예: 日, 날 일, ニチ" autocomplete="off" inputmode="search" aria-label="한자 검색">
-        <button type="submit" class="search-submit" aria-label="검색">⌕</button>
-        <button type="button" class="search-clear" data-action="clearSearch" aria-label="검색어 지우기">×</button>
-      </form>
+      ${searchFormTemplate()}
       <div class="chip-row" data-chip-group="level">
         ${["ALL", ...LEVELS].map((level) => `<button class="chip ${state.level === level ? "is-active" : ""}" data-level="${level}">${level === "ALL" ? "전체" : level}</button>`).join("")}
       </div>
@@ -552,21 +564,24 @@
         <button class="icon-button" data-action="back" aria-label="뒤로">‹</button>
         <button class="icon-button favorite-button ${favorite ? "is-active" : ""}" data-action="favorite" data-id="${item.id}" aria-label="즐겨찾기">${favorite ? "★" : "☆"}</button>
       </div>
+      ${searchFormTemplate("detail-search")}
       <section class="detail-hero">
         <div class="detail-glyph">${item.char}</div>
         <div class="detail-meta">
           <p class="eyebrow">#${item.id} · ${item.level}</p>
           <h1>${escapeHtml(item.hun)}</h1>
-          <p>${item.strokes}획 · ${radical ? `부수 ${escapeHtml(radical)} ${item.radical}번${radicalData ? ` · ${escapeHtml(radicalData.name)}` : ""}` : `부수 번호 ${item.radical ?? "-"}`}${item.freq ? ` · 빈도 ${item.freq}위` : ""}</p>
+          <p>${item.strokes}획 · ${radical ? `부수 ${shapePartInfo(radical) ? `<button class="inline-part-link detail-part-link" data-part="${escapeHtml(shapePartInfo(radical).character)}">${escapeHtml(radical)}</button>` : escapeHtml(radical)} ${item.radical}번${radicalData ? ` · ${escapeHtml(radicalData.name)}` : ""}` : `부수 번호 ${item.radical ?? "-"}`}${item.freq ? ` · 빈도 ${item.freq}위` : ""}</p>
           <div class="pill-line"><span class="soft-pill">숙달 ${p.mastery}/5</span>${item.grade ? `<span class="soft-pill">일본 학년 ${item.grade}</span>` : ""}</div>
         </div>
       </section>
       <div class="info-stack">
         <article class="info-card"><div class="info-label"><span>1. 기본 정보 · 대표 뜻</span></div><p class="info-value">${escapeHtml(koreanMeaning(item))}</p><div class="basic-readings"><p><strong>음독 :</strong> ${escapeHtml(onReadings)}</p><p><strong>훈독 :</strong> ${escapeHtml(kunReadings)}</p></div></article>
         <article class="info-card explanation-card">
-          <div class="info-label"><span>2. 한자 모양 해설</span><a class="source-link" href="${escapeHtml(item.sourceUrl)}" target="_blank" rel="noopener noreferrer">원문 보기 ↗</a></div>
+          <div class="info-label"><span>2. 한자 모양 해설</span><a class="source-link external-link" data-external-url="${escapeHtml(item.sourceUrl)}" href="${escapeHtml(item.sourceUrl)}" target="_blank" rel="noopener noreferrer">원문 보기 ↗</a></div>
           <div class="explanation-text">${(item.explanation.length ? item.explanation : [kanjiExplanation(item)]).map((paragraph) => `<p>${explanationHtml(item, paragraph)}</p>`).join("")}</div>
         </article>
+        ${partDirectoryTemplate()}
+        ${partDetailTemplate()}
         ${readingDetailTemplate(item, "on")}
         ${readingDetailTemplate(item, "kun")}
       </div>
@@ -824,6 +839,62 @@
       </section>`
   }
 
+  function openExternalUrl(url) {
+    let parsed
+    try {
+      parsed = new URL(url, window.location.href)
+    } catch (_) {
+      return
+    }
+    if (!/^https?:$/u.test(parsed.protocol)) return
+    if (!/Android/u.test(navigator.userAgent || "")) {
+      window.open(parsed.href, "_blank", "noopener,noreferrer")
+      return
+    }
+    const intent = `intent://${parsed.host}${parsed.pathname}${parsed.search}${parsed.hash}#Intent;scheme=${parsed.protocol.slice(0, -1)};action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;end`
+    window.location.href = intent
+  }
+
+  function closeTextActionMenu() {
+    const menu = document.getElementById("textActionMenu")
+    if (!menu) return
+    menu.hidden = true
+    menu.innerHTML = ""
+  }
+
+  async function copyText(value) {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value)
+      return
+    }
+    const textarea = document.createElement("textarea")
+    textarea.value = value
+    textarea.setAttribute("readonly", "")
+    textarea.style.position = "fixed"
+    textarea.style.opacity = "0"
+    document.body.appendChild(textarea)
+    textarea.select()
+    document.execCommand("copy")
+    textarea.remove()
+  }
+
+  function showTextActionMenu(event) {
+    const selection = window.getSelection?.()
+    const selectedText = selection?.toString().trim()
+    const element = event.target?.closest ? event.target.closest("input,textarea,button,a,select") : null
+    if (!selectedText || element) return
+    event.preventDefault()
+    state.contextText = selectedText
+    const menu = document.getElementById("textActionMenu")
+    if (!menu) return
+    menu.innerHTML = '<button type="button" data-action="copySelection" role="menuitem">복사</button><button type="button" data-action="translateSelection" role="menuitem">번역</button>'
+    const x = Number(event.clientX || 12)
+    const y = Number(event.clientY || 12)
+    menu.style.left = `${Math.max(8, Math.min(x, window.innerWidth - 150))}px`
+    menu.style.top = `${Math.max(8, Math.min(y, window.innerHeight - 58))}px`
+    menu.hidden = false
+  }
+
   function render() {
     const app = document.getElementById("app")
     const templates = {
@@ -844,13 +915,13 @@
         delete search.dataset.composing
         state.query = event.target.value
         state.listLimit = 100
-        refreshLearnResults()
+        if (state.route === "learn") refreshLearnResults()
       })
       search.addEventListener("input", (event) => {
         state.query = event.target.value
         state.listLimit = 100
         if (event.isComposing || search.dataset.composing === "true") return
-        refreshLearnResults()
+        if (state.route === "learn") refreshLearnResults()
       })
     }
     const searchForm = document.getElementById("searchForm")
@@ -859,11 +930,21 @@
       const value = search.value.trim()
       const exact = BY_CHAR.get(value)
       if (exact) navigate("detail", { detailId: exact.id })
+      else if (state.route === "detail") navigate("learn", { query: value, listLimit: 100 })
       else refreshLearnResults()
     })
   }
 
+  document.addEventListener("contextmenu", showTextActionMenu)
+
   document.addEventListener("click", (event) => {
+    if (!event.target.closest("#textActionMenu")) closeTextActionMenu()
+    const externalLink = event.target.closest("a[data-external-url]")
+    if (externalLink) {
+      event.preventDefault()
+      openExternalUrl(externalLink.dataset.externalUrl || externalLink.href)
+      return
+    }
     const target = event.target.closest("button")
     if (!target) return
     if (target.dataset.nav) navigate(target.dataset.nav)
@@ -923,6 +1004,16 @@
       if (input) input.value = ""
       refreshLearnResults()
       input?.focus()
+    }
+    if (action === "copySelection") {
+      const value = state.contextText
+      closeTextActionMenu()
+      copyText(value).then(() => toast("복사했습니다.")).catch(() => toast("복사하지 못했습니다."))
+    }
+    if (action === "translateSelection") {
+      const value = state.contextText
+      closeTextActionMenu()
+      openExternalUrl(`https://translate.google.com/?sl=auto&tl=ko&text=${encodeURIComponent(value)}`)
     }
     if (action === "toggleListReadings") {
       state.showListReadings = !state.showListReadings

@@ -10,6 +10,7 @@ vm.createContext(context)
 vm.runInContext(fs.readFileSync(path.join(root, "web/data/kanji-data.js"), "utf8"), context)
 vm.runInContext(fs.readFileSync(path.join(root, "web/data/kanji-hun.js"), "utf8"), context)
 vm.runInContext(fs.readFileSync(path.join(root, "web/data/kanji-site.js"), "utf8"), context)
+vm.runInContext(fs.readFileSync(path.join(root, "web/data/kanji-radicals.js"), "utf8"), context)
 vm.runInContext(fs.readFileSync(path.join(root, "web/data/kanji-examples.js"), "utf8"), context)
 vm.runInContext(fs.readFileSync(path.join(root, "web/data/kanji-study-extras.js"), "utf8"), context)
 
@@ -84,6 +85,21 @@ for (const item of db?.items || []) {
   if (!/^https:\/\/nihongokanji\.com\//.test(source?.sourceUrl || "")) errors.push(`사이트 출처 링크 오류: ${item.char}`)
 }
 
+const shapeParts = context.window.KANJI_RADICALS
+if (!shapeParts || typeof shapeParts !== "object") errors.push("모양자·부수 데이터 객체가 없습니다.")
+if (shapeParts?.meta?.total !== 156 || shapeParts?.items?.length !== 156) errors.push(`모양자·부수 데이터 오류: ${shapeParts?.items?.length}/156`)
+for (const part of shapeParts?.items || []) {
+  if (!part.character || !Array.isArray(part.forms) || !part.display || !part.meaning) errors.push(`모양자·부수 형식 오류: ${JSON.stringify(part)}`)
+  if (!/^https:\/\/nihongokanji\.com\//.test(part.sourceUrl || "")) errors.push(`모양자·부수 출처 링크 오류: ${part.character}`)
+  if (!Array.isArray(part.explanation)) errors.push(`모양자·부수 설명 형식 오류: ${part.character}`)
+}
+
+const expectedJapaneseGlyphLabels = { "送": "보낼 송", "輸": "보낼 수", "捨": "버릴 사" }
+for (const [character, label] of Object.entries(expectedJapaneseGlyphLabels)) {
+  if (db?.items?.find((item) => item.char === character)?.hun !== label) errors.push(`일본어 한자 표기 점검 오류: ${character}`)
+  if (site?.items?.[character]?.hun !== label) errors.push(`사이트 일본어 한자 표기 오류: ${character}`)
+}
+
 const counts = Object.fromEntries(["N5", "N4", "N3", "N2", "N1"].map((level) => [
   level,
   db.items.filter((item) => item.level === level).length
@@ -91,7 +107,7 @@ const counts = Object.fromEntries(["N5", "N4", "N3", "N2", "N1"].map((level) => 
 const expected = { N5: 103, N4: 181, N3: 324, N2: 415, N1: 1113 }
 if (JSON.stringify(counts) !== JSON.stringify(expected)) errors.push(`분포 오류: ${JSON.stringify(counts)}`)
 
-for (const file of ["index.html", "styles.css", "main.js", "assets/icon.svg", "data/kanji-hun.js", "data/kanji-site.js", "data/kanji-examples.js", "data/kanji-study-extras.js"]) {
+for (const file of ["index.html", "styles.css", "main.js", "assets/icon.svg", "data/kanji-hun.js", "data/kanji-site.js", "data/kanji-radicals.js", "data/kanji-examples.js", "data/kanji-study-extras.js"]) {
   if (!fs.existsSync(path.join(root, "web", file))) errors.push(`파일 누락: web/${file}`)
 }
 

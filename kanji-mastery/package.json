@@ -6,6 +6,7 @@
   "description": "오프라인 일본 상용한자 2,136자 학습 및 JLPT 수준진단 Android 앱",
   "scripts": {
     "sync:site": "node tools/sync-nihongokanji.mjs",
+    "sync:radicals": "node tools/sync-nihongokanji-radicals.mjs",
     "generate:data": "node tools/generate-kanji-data.mjs",
     "translate:examples": "node tools/translate-study-extras.mjs",
     "validate": "node tools/validate.mjs && node tools/smoke-ui.mjs",
