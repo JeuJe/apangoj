@@ -69,6 +69,7 @@ assert(text().includes("“날 일”. 하루, 날, 태양"), "사이트 대표 
 assert(window.document.querySelector(".source-link")?.href === "https://nihongokanji.com/8/", "한자별 원문 링크 누락")
 assert(window.document.querySelector(".source-link")?.dataset.externalUrl === "https://nihongokanji.com/8/", "외부 브라우저 링크 설정 누락")
 assert(window.document.querySelectorAll(".part-directory-item").length === 156, "일본어 한자 공부방 모양자·부수 일람 누락")
+assert(!/[\u3400-\u4DBF\u{20000}-\u{2FFFF}]/u.test(text()), "안드로이드 미지원 확장 한자 표시 잔존")
 assert(window.document.getElementById("textActionMenu"), "복사·번역 선택 메뉴 누락")
 assert(!text().includes("관련 단어") && !window.document.querySelector(".part-card"), "삭제 대상 컨테이너 잔존")
 assert(window.document.querySelector(".sentence-japanese")?.textContent.includes("今日") && window.document.querySelector(".sentence-japanese")?.textContent.includes("日曜日"), "예문 렌더링 실패")

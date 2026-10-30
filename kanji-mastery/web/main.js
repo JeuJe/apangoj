@@ -9,6 +9,21 @@
 
   const HUN = window.KANJI_HUN || {}
   const SITE = window.KANJI_SITE?.items || {}
+  const UNSUPPORTED_GLYPH_REPLACEMENTS = {
+    "𠂉": "人", "㐄": "足", "䒑": "艹", "⺍": "火", "㐅": "乂", "𠂒": "牛", "⻌": "辶",
+    "𠂇": "手", "𠔼": "囗", "⺕": "手", "𤣩": "玉", "⻏": "阝", "𠃊": "乚", "⻖": "阝", "𠮠": "骨",
+    "𠦝": "日", "⺈": "刀", "⺶": "羊", "𭤨": "旗", "㑒": "僉", "𥫗": "竹", "𠫔": "机", "𡗗": "芽",
+    "𦣻": "頁", "𧘇": "人", "𠆢": "人", "𠀎": "布", "⺀": "丶丶", "𤴓": "正", "𠃍": "弓", "⺌": "小",
+    "𠃌": "丁", "⺤": "爪", "㠯": "己", "㦮": "戈", "𠂤": "山", "𦍌": "羊", "𮥶": "鳥", "㓁": "网",
+    "𠀉": "手", "㕣": "口", "𦰩": "漢", "𤰇": "矢", "𠀗": "矢", "𤰔": "糸", "㔾": "卩", "𠘧": "網",
+    "𠂎": "門", "𠬶": "帚", "㐱": "人", "⺨": "犭", "𠂢": "水", "𢦏": "戈", "𠮛": "鬲", "㐫": "凶",
+    "𠀐": "上", "𦥑": "手", "㐮": "襄", "𠙻": "缶", "⺎": "山", "𦉰": "罒", "⺊": "卜", "𡰥": "冊",
+    "𠂆": "冖", "𭾱": "壊", "⺗": "心", "㐭": "稟", "𦈢": "缶", "𤴔": "止", "㐬": "流", "𠃜": "眉",
+    "⺁": "厂", "𡨄": "寒", "𠤎": "七", "𠚍": "文", "㫃": "旗", "𫝀": "足", "𭥍": "城", "⺫": "目"
+  }
+  function supportedGlyphText(value) {
+    return [...String(value || "")].map((character) => UNSUPPORTED_GLYPH_REPLACEMENTS[character] || character).join("")
+  }
   function siteReadings(value, fallback) {
     const readings = String(value || "").split(/[、,]/u).map((reading) => reading.trim()).filter(Boolean)
     return readings.length ? readings : fallback
@@ -134,17 +149,18 @@
   function explanationHtml(item, paragraph) {
     const components = new Set([radicalPart(item), ...item.components, ...item.components.map(canonicalPart)])
     return [...String(paragraph)].map((character) => {
+      const visibleCharacter = supportedGlyphText(character)
       const linked = linkedPartItem(character)
       const shape = shapePartInfo(character) || shapePartInfo(canonicalPart(character))
-      if (character === item.char || !/\p{Script=Han}/u.test(character)) return escapeHtml(character)
-      if (linked) return `<button class="inline-kanji-link" data-detail="${linked.id}" aria-label="${escapeHtml(character)} 상세 보기">${escapeHtml(character)}</button>`
+      if (character === item.char || !/\p{Script=Han}/u.test(character)) return escapeHtml(visibleCharacter)
+      if (linked) return `<button class="inline-kanji-link" data-detail="${linked.id}" aria-label="${escapeHtml(visibleCharacter)} 상세 보기">${escapeHtml(visibleCharacter)}</button>`
       if (shape || components.has(character)) {
         const part = shape || shapePartInfo(canonicalPart(character))
         return part
-          ? `<button class="inline-part-link" data-part="${escapeHtml(part.character)}" aria-label="${escapeHtml(character)} 모양자·부수 설명 보기">${escapeHtml(character)}</button>`
-          : escapeHtml(character)
+          ? `<button class="inline-part-link" data-part="${escapeHtml(part.character)}" aria-label="${escapeHtml(visibleCharacter)} 모양자·부수 설명 보기">${escapeHtml(visibleCharacter)}</button>`
+          : escapeHtml(visibleCharacter)
       }
-      return escapeHtml(character)
+      return escapeHtml(visibleCharacter)
     }).join("")
   }
 
@@ -152,7 +168,7 @@
     if (!SHAPE_PARTS.length) return ""
     return `<details class="part-directory">
       <summary>모양자·부수 일람 <span>${SHAPE_PARTS.length}개</span></summary>
-      <div class="part-directory-grid">${SHAPE_PARTS.map((part) => `<button class="part-directory-item" data-part="${escapeHtml(part.character)}"><strong>${escapeHtml(part.display)}</strong><span>${escapeHtml(part.meaning)}</span></button>`).join("")}</div>
+      <div class="part-directory-grid">${SHAPE_PARTS.map((part) => `<button class="part-directory-item" data-part="${escapeHtml(part.character)}"><strong>${escapeHtml(supportedGlyphText(part.display))}</strong><span>${escapeHtml(part.meaning)}</span></button>`).join("")}</div>
     </details>`
   }
 
@@ -161,8 +177,8 @@
     if (!part) return ""
     const explanations = (part.explanation || []).filter((paragraph) => !/^(주의|참고)\)?$/u.test(paragraph.trim()))
     return `<article class="info-card part-detail-card" id="partDetailCard">
-      <div class="info-label"><span>모양자·부수 · ${escapeHtml(part.display)}</span><button class="text-button" data-action="closePart">닫기</button></div>
-      <p class="part-title">${escapeHtml(part.display)}</p>
+      <div class="info-label"><span>모양자·부수 · ${escapeHtml(supportedGlyphText(part.display))}</span><button class="text-button" data-action="closePart">닫기</button></div>
+      <p class="part-title">${escapeHtml(supportedGlyphText(part.display))}</p>
       <p class="part-meaning">${escapeHtml(part.meaning)}</p>
       ${explanations.length ? `<div class="explanation-text">${explanations.map((paragraph) => `<p>${explanationHtml({ char: "", components: [] }, paragraph)}</p>`).join("")}</div>` : ""}
       <div class="part-detail-actions"><a class="source-link external-link" data-external-url="${escapeHtml(part.sourceUrl)}" href="${escapeHtml(part.sourceUrl)}" target="_blank" rel="noopener noreferrer">원문 보기 ↗</a></div>
@@ -335,7 +351,7 @@
   }
 
   function readingEntryTemplate(entry) {
-    const text = String(entry?.text || "").trim()
+    const text = supportedGlyphText(entry?.text).trim()
     const match = text.match(/^(\S+)\s+(.+)$/u)
     if (!match || /[가-힣]/u.test(match[1])) return `<div class="reading-entry reading-entry-plain">${escapeHtml(text)}</div>`
     const words = match[2].split(/\s*,\s*/u).map((word) => word.trim()).filter(Boolean)
@@ -407,7 +423,7 @@
     const isOn = type === "on"
     const detail = item[`${type}Detail`]
     const label = isOn ? "3. 音読み · 음독 상세" : "4. 訓読み · 훈독 상세"
-    const paragraphs = (detail?.paragraphs || []).map((paragraph) => `<p class="reading-guide">${escapeHtml(paragraph)}</p>`).join("")
+    const paragraphs = (detail?.paragraphs || []).map((paragraph) => `<p class="reading-guide">${escapeHtml(supportedGlyphText(paragraph))}</p>`).join("")
     const entries = (detail?.entries || []).map(readingEntryTemplate).join("")
     return `<article class="info-card reading-detail-card ${isOn ? "on-reading" : "kun-reading"}">
       <div class="info-label"><span>${label}</span></div>
