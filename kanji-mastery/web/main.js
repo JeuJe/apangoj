@@ -851,8 +851,7 @@
       window.open(parsed.href, "_blank", "noopener,noreferrer")
       return
     }
-    const intent = `intent://${parsed.host}${parsed.pathname}${parsed.search}${parsed.hash}#Intent;scheme=${parsed.protocol.slice(0, -1)};action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;end`
-    window.location.href = intent
+    window.location.assign(parsed.href)
   }
 
   function closeTextActionMenu() {
@@ -1070,8 +1069,12 @@
     window.scrollTo(0, 0)
   })
 
-  history.replaceState({ route: "home" }, "", "#home")
-  activeNav("home")
+  const initialHash = location.hash.replace(/^#/, "").split("/")
+  const initialRoute = ["home", "learn", "detail", "quiz", "quizRun", "result", "stats"].includes(initialHash[0]) ? initialHash[0] : "home"
+  state.route = initialRoute
+  if (initialRoute === "detail") state.detailId = Number(initialHash[1]) || 1
+  history.replaceState({ route: initialRoute }, "", `#${initialRoute === "detail" ? `detail/${state.detailId}` : initialRoute}`)
+  activeNav(initialRoute)
   updateStreakBadge()
   render()
 })()
