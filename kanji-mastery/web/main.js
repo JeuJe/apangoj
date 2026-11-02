@@ -185,7 +185,7 @@
   function partDetailTemplate() {
     const part = shapePartInfo(state.partDetail)
     if (!part) return ""
-    const explanations = (part.explanation || []).filter((paragraph) => !/^(주의|참고)\)?$/u.test(paragraph.trim()))
+    const explanations = part.explanation || []
     return `<article class="info-card part-detail-card" id="partDetailCard">
       <div class="info-label"><span>모양자·부수 · ${escapeHtml(supportedGlyphText(part.display))}</span><button class="text-button" data-action="closePart">닫기</button></div>
       <p class="part-title">${escapeHtml(supportedGlyphText(part.display))}</p>

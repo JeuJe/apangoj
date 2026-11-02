@@ -59,9 +59,19 @@ function parseDetail(html, row) {
   const document = dom.window.document
   const info = document.querySelector(".info.wide")
   const values = [...(info?.querySelectorAll(".v") || [])].map((node) => normalizeText(node.textContent))
-  const explanation = [...document.querySelectorAll(".pr .gap")]
-    .map((node) => normalizeText(node.textContent))
-    .filter(Boolean)
+  const heading = [...document.querySelectorAll("h2, h3")]
+    .find((node) => normalizeText(node.textContent).includes("모양 해설"))
+  const explanation = []
+  let sibling = heading?.nextElementSibling
+  while (sibling && !/^(H2|H3)$/u.test(sibling.tagName)) {
+    if (sibling.matches?.(".pr")) {
+      for (const paragraph of sibling.querySelectorAll("p")) {
+        const text = normalizeText(paragraph.textContent)
+        if (text) explanation.push(text)
+      }
+    }
+    sibling = sibling.nextElementSibling
+  }
   const detail = {
     ...row,
     meaning: values[0] || row.meaning,
