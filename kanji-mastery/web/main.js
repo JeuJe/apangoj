@@ -540,8 +540,9 @@
   function kanjiCard(item) {
     const p = progressOf(item.id)
     const dot = p.mastery >= 4 ? "mastered" : p.seen > 0 ? "learned" : ""
+    const readings = item.on.join(" · ") || item.kun.join(" · ") || "독음 없음"
     const reading = state.showListReadings
-      ? `<h3>#${item.id} ${escapeHtml(item.hun)}</h3><p>${escapeHtml(item.on.join(" · ") || item.kun.join(" · ") || "독음 없음")}</p>`
+      ? `<h3>#${item.id} ${escapeHtml(item.char)}</h3><p>${escapeHtml(item.hun)} · ${escapeHtml(readings)}</p>`
       : `<h3 class="reading-mask">#${item.id}</h3>`
     return `<button class="kanji-card ${state.showListReadings ? "" : "is-reading-hidden"}" data-detail="${item.id}">
       <span class="master-dot ${dot}"></span>
