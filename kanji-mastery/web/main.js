@@ -61,6 +61,7 @@
   const LEVELS = ["N5", "N4", "N3", "N2", "N1"]
   const LEVEL_NAMES = { N5: "입문", N4: "초급", N3: "중급", N2: "중상급", N1: "상급" }
   const STORAGE_KEY = "kanji2136.progress.v1"
+  const LEARN_RETURN_KEY = "kanji2136.learnReturn.v1"
   const DAY = 86400000
   const KANGXI_RADICALS = [..."一丨丶丿乙亅二亠人儿入八冂冖冫几凵刀力勹匕匚匸十卜卩厂厶又口囗土士夂夊夕大女子宀寸小尢尸屮山巛工己巾干幺广廴廾弋弓彐彡彳心戈戶手支攴文斗斤方无日曰月木欠止歹殳毋比毛氏气水火爪父爻爿片牙牛犬玄玉瓜瓦甘生用田疋疒癶白皮皿目矛矢石示禸禾穴立竹米糸缶网羊羽老而耒耳聿肉臣自至臼舌舛舟艮色艸虍虫血行衣襾見角言谷豆豕豸貝赤走足身車辛辰辵邑酉釆里金長門阜隶隹雨靑非面革韋韭音頁風飛食首香馬骨高髟鬥鬯鬲鬼魚鳥鹵鹿麥麻黃黍黑黹黽鼎鼓鼠鼻齊齒龍龜龠"]
   const PART_VARIANTS = {
@@ -85,6 +86,8 @@
     quizMode: "practice",
     quizLevel: "N5",
     quizCount: 20,
+    quizRangeStart: 1,
+    quizRangeEnd: 20,
     quiz: null,
     contextText: "",
     learnReturn: null,
@@ -105,6 +108,20 @@
       return Object.assign(emptyStore(), JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"))
     } catch (_) {
       return emptyStore()
+    }
+  }
+
+  function saveLearnReturn(snapshot) {
+    try {
+      sessionStorage.setItem(LEARN_RETURN_KEY, JSON.stringify(snapshot))
+    } catch (_) {}
+  }
+
+  function loadLearnReturn() {
+    try {
+      return JSON.parse(sessionStorage.getItem(LEARN_RETURN_KEY) || "null")
+    } catch (_) {
+      return null
     }
   }
 
@@ -277,7 +294,8 @@
   }
 
   function activeNav(route) {
-    const base = route === "detail" ? "learn" : route === "quizRun" || route === "result" ? "quiz" : route
+    const isRangeQuiz = state.quiz?.mode === "range" || state.result?.mode === "range"
+    const base = route === "detail" ? "learn" : route === "quizRun" || route === "result" ? (isRangeQuiz ? "range" : "quiz") : route
     document.querySelectorAll(".bottom-nav button").forEach((button) => {
       button.classList.toggle("is-active", button.dataset.nav === base)
     })
@@ -292,13 +310,17 @@
       query: state.query,
       listLimit: state.listLimit,
       showListReadings: state.showListReadings,
-      scrollY: window.scrollY || 0
+      scrollY: window.scrollY || document.documentElement?.scrollTop || document.body?.scrollTop || 0
     }
+    saveLearnReturn(state.learnReturn)
   }
 
   function restoreLearnView() {
     const snapshot = state.learnReturn || {}
     Object.assign(state, snapshot, { route: "learn", detailId: null, partDetail: null, learnReturn: null, searchEditing: false })
+    try {
+      sessionStorage.removeItem(LEARN_RETURN_KEY)
+    } catch (_) {}
     history.replaceState({ route: "learn" }, "", "#learn")
     activeNav("learn")
     render()
@@ -569,6 +591,7 @@
   function searchFormTemplate(extraClass = "") {
     return `<form class="search-box ${extraClass}" id="searchForm" role="search">
       <input id="searchInput" type="search" value="${escapeHtml(state.query)}" placeholder="예: 日, 날 일, ニチ" autocomplete="off" inputmode="search" enterkeyhint="search" aria-label="한자 검색">
+      <button type="button" class="search-clear" data-action="clearSearch" aria-label="검색어 지우기">×</button>
       <button type="submit" class="search-submit" aria-label="검색">⌕</button>
     </form>`
   }
@@ -655,6 +678,27 @@
     `
   }
 
+  function rangeQuizFormTemplate() {
+    return `<div class="page-head">
+        <p class="eyebrow">NUMBER RANGE TEST</p>
+        <h1>번호 범위 테스트</h1>
+        <p class="subtext">1~2,136번 중 두 번호를 입력하면 그 사이의 한자를 전부 랜덤 순서로 출제합니다.</p>
+      </div>
+      <form class="form-card range-form" id="rangeQuizForm">
+        <div class="range-input-row">
+          <label class="field"><span class="field-label">시작 번호</span><input id="rangeStartInput" class="number-input" type="number" min="1" max="2136" step="1" value="${state.quizRangeStart}" inputmode="numeric" enterkeyhint="next"></label>
+          <span class="range-separator">~</span>
+          <label class="field"><span class="field-label">끝 번호</span><input id="rangeEndInput" class="number-input" type="number" min="1" max="2136" step="1" value="${state.quizRangeEnd}" inputmode="numeric" enterkeyhint="go"></label>
+        </div>
+        <p class="form-help">입력한 두 번호를 모두 포함합니다. 예를 들어 50~120은 71문항이 무작위 순서로 나옵니다.</p>
+        <button class="btn primary full" type="submit">범위 테스트 시작</button>
+      </form>`
+  }
+
+  function rangeQuizTemplate() {
+    return rangeQuizFormTemplate()
+  }
+
   function quizSetupTemplate() {
     return `
       <div class="page-head">
@@ -731,6 +775,11 @@
     if (mode === "diagnostic") {
       selected = LEVELS.flatMap((level) => selectEvenly(ITEMS.filter((item) => item.level === level), 5))
       selected = shuffle(selected)
+    } else if (mode === "range") {
+      const start = Math.min(state.quizRangeStart, state.quizRangeEnd)
+      const end = Math.max(state.quizRangeStart, state.quizRangeEnd)
+      const pool = ITEMS.filter((item) => item.id >= start && item.id <= end)
+      selected = selectEvenly(pool, pool.length)
     } else {
       if (Array.isArray(customPool) && customPool.length === 0) {
         toast(mode === "mistakes" ? "아직 오답 기록이 없습니다." : "지금 복습할 한자가 없습니다.")
@@ -744,7 +793,16 @@
       return
     }
     const questions = selected.map((item) => makeQuestion(item, ITEMS.filter((candidate) => candidate.level === item.level)))
-    state.quiz = { mode, questions, index: 0, answers: [], locked: false, selected: null }
+    state.quiz = {
+      mode,
+      rangeStart: mode === "range" ? Math.min(state.quizRangeStart, state.quizRangeEnd) : null,
+      rangeEnd: mode === "range" ? Math.max(state.quizRangeStart, state.quizRangeEnd) : null,
+      questions,
+      index: 0,
+      answers: [],
+      locked: false,
+      selected: null
+    }
     navigate("quizRun")
   }
 
@@ -805,7 +863,7 @@
   function finishQuiz() {
     const quiz = state.quiz
     const correct = quiz.answers.filter((answer) => answer.correct).length
-    const session = { id: Date.now(), date: Date.now(), mode: quiz.mode, total: quiz.answers.length, correct, answers: quiz.answers }
+    const session = { id: Date.now(), date: Date.now(), mode: quiz.mode, rangeStart: quiz.rangeStart, rangeEnd: quiz.rangeEnd, total: quiz.answers.length, correct, answers: quiz.answers }
     store.sessions.unshift(session)
     store.sessions = store.sessions.slice(0, 50)
     if (quiz.mode === "diagnostic") {
@@ -852,8 +910,14 @@
           return `<div class="breakdown-row"><span>${row.level}</span><span class="progress-track"><span style="width:${rate}%"></span></span><strong>${rate}%</strong></div>`
         }).join("")}</div>
       </section>
-      <div class="detail-actions" style="margin-top:20px"><button class="btn ghost" data-nav="stats">통계 보기</button><button class="btn primary" data-nav="quiz">다시 풀기</button></div>
+      <div class="detail-actions" style="margin-top:20px"><button class="btn ghost" data-nav="stats">통계 보기</button><button class="btn primary" data-nav="${result.mode === "range" ? "range" : "quiz"}">다시 풀기</button></div>
     `
+  }
+
+  function sessionName(session) {
+    if (session.mode === "diagnostic") return "JLPT 수준진단"
+    if (session.mode === "range") return `번호 ${session.rangeStart}~${session.rangeEnd} 테스트`
+    return "연습 시험"
   }
 
   function statsTemplate() {
@@ -881,7 +945,7 @@
       </section>
       <section class="section">
         <div class="section-head"><h2>최근 시험</h2></div>
-        ${store.sessions.length ? `<div class="session-list">${store.sessions.slice(0, 8).map((session) => `<div class="session-item"><span><h3>${session.mode === "diagnostic" ? "JLPT 수준진단" : "연습 시험"}</h3><p>${new Date(session.date).toLocaleDateString("ko-KR")} · ${session.total}문항</p></span><strong>${Math.round(session.correct / session.total * 100)}%</strong></div>`).join("")}</div>` : '<div class="empty">시험을 풀면 결과가 여기에 쌓입니다.</div>'}
+        ${store.sessions.length ? `<div class="session-list">${store.sessions.slice(0, 8).map((session) => `<div class="session-item"><span><h3>${sessionName(session)}</h3><p>${new Date(session.date).toLocaleDateString("ko-KR")} · ${session.total}문항</p></span><strong>${Math.round(session.correct / session.total * 100)}%</strong></div>`).join("")}</div>` : '<div class="empty">시험을 풀면 결과가 여기에 쌓입니다.</div>'}
       </section>
       <section class="section">
         <div class="section-head"><h2>데이터 안내</h2></div>
@@ -958,6 +1022,7 @@
       learn: learnTemplate,
       detail: detailTemplate,
       quiz: quizSetupTemplate,
+      range: rangeQuizTemplate,
       quizRun: quizRunTemplate,
       result: resultTemplate,
       stats: statsTemplate
@@ -997,6 +1062,19 @@
       if (exact) navigate("detail", { detailId: exact.id })
       else if (state.route === "detail") navigate("learn", { query: value, listLimit: 100 })
       else refreshLearnResults()
+    })
+    const rangeForm = document.getElementById("rangeQuizForm")
+    rangeForm?.addEventListener("submit", (event) => {
+      event.preventDefault()
+      const start = Number(document.getElementById("rangeStartInput")?.value)
+      const end = Number(document.getElementById("rangeEndInput")?.value)
+      if (!Number.isInteger(start) || !Number.isInteger(end) || start < 1 || end < 1 || start > 2136 || end > 2136) {
+        toast("번호는 1~2136 사이의 정수로 입력해 주세요.")
+        return
+      }
+      state.quizRangeStart = Math.min(start, end)
+      state.quizRangeEnd = Math.max(start, end)
+      startQuiz("range")
     })
   }
 
@@ -1104,8 +1182,9 @@
       else { state.quiz.index += 1; state.quiz.locked = false; state.quiz.selected = null; render(); window.scrollTo(0, 0) }
     }
     if (action === "quitQuiz") {
+      const returnRoute = state.quiz?.mode === "range" ? "range" : "quiz"
       state.quiz = null
-      navigate("quiz")
+      navigate(returnRoute)
     }
     if (action === "review") {
       const pool = ITEMS.filter((item) => {
@@ -1130,6 +1209,10 @@
   window.addEventListener("popstate", () => {
     const parts = location.hash.replace(/^#/, "").split("/")
     const route = parts[0] || "home"
+    if (state.route === "detail" && route === "learn" && state.learnReturn) {
+      restoreLearnView()
+      return
+    }
     state.route = route
     if (route === "detail") state.detailId = Number(parts[1]) || state.detailId || 1
     if (route !== "detail") state.partDetail = null
@@ -1139,9 +1222,10 @@
   })
 
   const initialHash = location.hash.replace(/^#/, "").split("/")
-  const initialRoute = ["home", "learn", "detail", "quiz", "quizRun", "result", "stats"].includes(initialHash[0]) ? initialHash[0] : "home"
+  const initialRoute = ["home", "learn", "detail", "quiz", "range", "quizRun", "result", "stats"].includes(initialHash[0]) ? initialHash[0] : "home"
   state.route = initialRoute
   if (initialRoute === "detail") state.detailId = Number(initialHash[1]) || 1
+  if (initialRoute === "detail") state.learnReturn = loadLearnReturn()
   history.replaceState({ route: initialRoute }, "", `#${initialRoute === "detail" ? `detail/${state.detailId}` : initialRoute}`)
   activeNav(initialRoute)
   updateStreakBadge()

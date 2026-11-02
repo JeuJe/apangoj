@@ -30,6 +30,7 @@ const text = () => window.document.getElementById("app").textContent
 
 assert(text().includes("하루 10자씩"), "홈 화면 렌더링 실패")
 assert(window.document.querySelectorAll(".level-card").length === 5, "JLPT 카드 렌더링 실패")
+assert(window.document.querySelectorAll(".bottom-nav [data-nav]").length === 5, "하단 메뉴 5개 구성 누락")
 
 click('[data-nav="learn"]')
 assert(window.document.querySelectorAll(".kanji-card").length === 100, "학습 목록 초기 100자 렌더링 실패")
@@ -47,7 +48,7 @@ input.dispatchEvent(new window.Event("input", { bubbles: true }))
 assert(window.document.querySelectorAll(".kanji-card").length >= 1, "한국 훈음 검색 실패")
 assert(text().includes("日"), "검색 결과 한자 누락")
 assert(window.document.getElementById("searchInput") === input, "검색 중 입력창 교체 실패")
-assert(!window.document.querySelector(".search-clear"), "중복 검색어 지우기 버튼 잔존")
+assert(window.document.querySelector(".search-clear"), "큰 검색어 지우기 버튼 누락")
 
 click(".kanji-card")
 assert(window.document.querySelector(".detail-glyph"), "상세 화면 렌더링 실패")
@@ -101,8 +102,7 @@ click('[data-action="back"]')
 const clearInput = window.document.getElementById("searchInput")
 clearInput.value = "날 일"
 clearInput.dispatchEvent(new window.Event("input", { bubbles: true }))
-clearInput.value = ""
-clearInput.dispatchEvent(new window.Event("input", { bubbles: true }))
+click(".search-clear")
 assert(window.document.getElementById("searchInput").value === "" && window.document.querySelectorAll(".kanji-card").length === 100, "검색어 지우기 실패")
 
 const n2Search = window.document.getElementById("searchInput")
@@ -112,7 +112,19 @@ click(".kanji-card")
 assert(!text().includes("OpenJLPT N2 문맥 예문") && !text().includes("(member of) political party") && text().includes("정당"), "한국어 뜻 또는 문맥 링크 잔존")
 assert(!text().includes("という言葉を覚えました"), "반복 자동 예문이 남아 있습니다")
 
+click('[data-nav="range"]')
+assert(window.document.querySelector("#rangeQuizForm"), "독립 범위 테스트 메뉴 누락")
+const rangeStart = window.document.getElementById("rangeStartInput")
+const rangeEnd = window.document.getElementById("rangeEndInput")
+rangeStart.value = "50"
+rangeEnd.value = "120"
+window.document.getElementById("rangeQuizForm").dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }))
+assert(window.document.querySelector(".quiz-top strong")?.textContent === "1/71", "번호 범위 전체 랜덤 출제 실패")
+click('[data-action="quitQuiz"]')
+assert(window.document.querySelector("#rangeQuizForm"), "범위 테스트 종료 후 메뉴 복귀 실패")
 click('[data-nav="quiz"]')
+assert(!window.document.querySelector('[data-mode="range"]'), "범위 테스트가 시험 화면에 중복 노출됨")
+click('[data-mode="practice"]')
 click('[data-quiz-count="10"]')
 click('[data-action="startQuiz"]')
 assert(window.document.querySelectorAll(".answer").length === 4, "시험 선택지 렌더링 실패")
@@ -124,5 +136,5 @@ click('[data-mode="diagnostic"]')
 click('[data-action="startDiagnostic"]')
 assert(text().includes("1/25"), "25문항 수준진단 시작 실패")
 
-console.log("UI 스모크 테스트 완료: 검색·독음 상세·N2 예문·상세 복귀·저장·시험·수준진단")
+console.log("UI 스모크 테스트 완료: 검색·독음 상세·N2 예문·상세 복귀·번호 범위 시험·저장·시험·수준진단")
 dom.window.close()
