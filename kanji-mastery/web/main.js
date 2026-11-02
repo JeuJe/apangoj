@@ -9,6 +9,14 @@
 
   const HUN = window.KANJI_HUN || {}
   const SITE = window.KANJI_SITE?.items || {}
+  const EXPLANATION_OVERRIDES = {
+    "印": [
+      "印 = 手 + 卩。",
+      "「手」는 손을 본뜬 모양자입니다.",
+      "「卩」는 무릎을 꿇고 앉은 사람을 본뜬 모양자입니다.",
+      "印은 손으로 사람을 눌러 표시를 남기는 모습을 본떠, ‘도장·표시’를 뜻합니다."
+    ]
+  }
   const UNSUPPORTED_GLYPH_REPLACEMENTS = {
     "𠂉": "人", "㐄": "足", "䒑": "艹", "⺍": "火", "㐅": "乂", "𠂒": "牛", "⻌": "辶",
     "𠂇": "手", "𠔼": "囗", "⺕": "手", "𤣩": "玉", "⻏": "阝", "𠃊": "乚", "⻖": "阝", "𠮠": "骨",
@@ -36,7 +44,7 @@
       on: siteReadings(source?.on, item.on),
       kun: siteReadings(source?.kun, item.kun),
       siteMeaning: source?.meaning || "",
-      explanation: source?.explanation || [],
+      explanation: EXPLANATION_OVERRIDES[item.char] || source?.explanation || [],
       onDetail: source?.onDetail || { paragraphs: [], entries: [] },
       kunDetail: source?.kunDetail || { paragraphs: [], entries: [] },
       sourceUrl: source?.sourceUrl || `https://nihongokanji.com/?s=${encodeURIComponent(item.char)}`
@@ -78,7 +86,9 @@
     quizLevel: "N5",
     quizCount: 20,
     quiz: null,
-    contextText: ""
+    contextText: "",
+    learnReturn: null,
+    searchEditing: false
   }
 
   const emptyStore = () => ({
@@ -273,7 +283,31 @@
     })
   }
 
+  function captureLearnView() {
+    if (state.route !== "learn") return
+    if (state.searchEditing && state.learnReturn) return
+    state.learnReturn = {
+      level: state.level,
+      status: state.status,
+      query: state.query,
+      listLimit: state.listLimit,
+      showListReadings: state.showListReadings,
+      scrollY: window.scrollY || 0
+    }
+  }
+
+  function restoreLearnView() {
+    const snapshot = state.learnReturn || {}
+    Object.assign(state, snapshot, { route: "learn", detailId: null, partDetail: null, learnReturn: null, searchEditing: false })
+    history.replaceState({ route: "learn" }, "", "#learn")
+    activeNav("learn")
+    render()
+    const scrollY = Number(snapshot.scrollY) || 0
+    setTimeout(() => window.scrollTo(0, scrollY), 0)
+  }
+
   function navigate(route, options = {}, push = true) {
+    if (state.route === "learn" && route === "detail") captureLearnView()
     if (state.route !== "detail" && route === "detail") state.previousRoute = "learn"
     if (route === "detail" && options.detailId && Number(options.detailId) !== Number(state.detailId)) options.partDetail = null
     Object.assign(state, options, { route })
@@ -535,7 +569,6 @@
     return `<form class="search-box ${extraClass}" id="searchForm" role="search">
       <input id="searchInput" type="search" value="${escapeHtml(state.query)}" placeholder="예: 日, 날 일, ニチ" autocomplete="off" inputmode="search" enterkeyhint="search" aria-label="한자 검색">
       <button type="submit" class="search-submit" aria-label="검색">⌕</button>
-      <button type="button" class="search-clear" data-action="clearSearch" aria-label="검색어 지우기">×</button>
     </form>`
   }
 
@@ -585,7 +618,8 @@
         <div class="detail-glyph">${item.char}</div>
         <div class="detail-meta">
           <p class="eyebrow">#${item.id} · ${item.level}</p>
-          <h1>${escapeHtml(item.hun)}</h1>
+          <h1>${escapeHtml(item.char)}</h1>
+          <p class="detail-hun">${escapeHtml(item.hun)}</p>
           <p>${item.strokes}획 · ${radical ? `부수 ${shapePartInfo(radical) ? `<button class="inline-part-link detail-part-link" data-part="${escapeHtml(shapePartInfo(radical).character)}">${escapeHtml(radical)}</button>` : escapeHtml(radical)} ${item.radical}번${radicalData ? ` · ${escapeHtml(radicalData.name)}` : ""}` : `부수 번호 ${item.radical ?? "-"}`}${item.freq ? ` · 빈도 ${item.freq}위` : ""}</p>
           <div class="pill-line"><span class="soft-pill">숙달 ${p.mastery}/5</span>${item.grade ? `<span class="soft-pill">일본 학년 ${item.grade}</span>` : ""}</div>
         </div>
@@ -903,10 +937,16 @@
     const menu = document.getElementById("textActionMenu")
     if (!menu) return
     menu.innerHTML = '<button type="button" data-action="copySelection" role="menuitem">복사</button><button type="button" data-action="translateSelection" role="menuitem">번역</button>'
-    const x = Number(event.clientX || 12)
-    const y = Number(event.clientY || 12)
-    menu.style.left = `${Math.max(8, Math.min(x, window.innerWidth - 150))}px`
-    menu.style.top = `${Math.max(8, Math.min(y, window.innerHeight - 58))}px`
+    const range = selection?.rangeCount ? selection.getRangeAt(0) : null
+    const rect = range?.getBoundingClientRect?.()
+    const anchorLeft = rect?.width ? rect.left + rect.width / 2 : Number(event.clientX || 12)
+    const anchorTop = rect?.height ? rect.top : Number(event.clientY || 12)
+    const anchorBottom = rect?.height ? rect.bottom : anchorTop
+    const left = Math.max(8, Math.min(anchorLeft - 75, window.innerWidth - 158))
+    const above = anchorTop - 62
+    const top = above >= 8 ? above : Math.min(window.innerHeight - 58, anchorBottom + 12)
+    menu.style.left = `${left}px`
+    menu.style.top = `${Math.max(8, top)}px`
     menu.hidden = false
   }
 
@@ -925,7 +965,11 @@
     updateStreakBadge()
     const search = document.getElementById("searchInput")
     if (search) {
-      search.addEventListener("compositionstart", () => { search.dataset.composing = "true" })
+      search.addEventListener("compositionstart", () => {
+        if (state.route === "learn" && !state.searchEditing) captureLearnView()
+        state.searchEditing = state.route === "learn"
+        search.dataset.composing = "true"
+      })
       search.addEventListener("compositionend", (event) => {
         delete search.dataset.composing
         state.query = event.target.value
@@ -933,6 +977,10 @@
         if (state.route === "learn") refreshLearnResults()
       })
       search.addEventListener("input", (event) => {
+        if (state.route === "learn" && !state.searchEditing && event.target.value !== state.query) {
+          captureLearnView()
+          state.searchEditing = true
+        }
         state.query = event.target.value
         state.listLimit = 100
         if (event.isComposing || search.dataset.composing === "true") return
@@ -943,6 +991,7 @@
     searchForm?.addEventListener("submit", (event) => {
       event.preventDefault()
       const value = search.value.trim()
+      search.blur()
       const exact = BY_CHAR.get(value)
       if (exact) navigate("detail", { detailId: exact.id })
       else if (state.route === "detail") navigate("learn", { query: value, listLimit: 100 })
@@ -1045,7 +1094,10 @@
       store.favorites = store.favorites.includes(id) ? store.favorites.filter((value) => value !== id) : [...store.favorites, id]
       saveStore(); render()
     }
-    if (action === "back") navigate(state.previousRoute || "learn")
+    if (action === "back") {
+      if (state.route === "detail" && state.learnReturn) restoreLearnView()
+      else navigate(state.previousRoute || "learn")
+    }
     if (action === "nextQuestion") {
       if (state.quiz.index + 1 >= state.quiz.questions.length) finishQuiz()
       else { state.quiz.index += 1; state.quiz.locked = false; state.quiz.selected = null; render(); window.scrollTo(0, 0) }

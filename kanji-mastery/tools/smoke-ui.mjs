@@ -47,7 +47,7 @@ input.dispatchEvent(new window.Event("input", { bubbles: true }))
 assert(window.document.querySelectorAll(".kanji-card").length >= 1, "한국 훈음 검색 실패")
 assert(text().includes("日"), "검색 결과 한자 누락")
 assert(window.document.getElementById("searchInput") === input, "검색 중 입력창 교체 실패")
-assert(window.document.querySelector(".search-clear"), "검색어 지우기 버튼 누락")
+assert(!window.document.querySelector(".search-clear"), "중복 검색어 지우기 버튼 잔존")
 
 click(".kanji-card")
 assert(window.document.querySelector(".detail-glyph"), "상세 화면 렌더링 실패")
@@ -98,8 +98,11 @@ window.document.getElementById("searchForm").dispatchEvent(new window.Event("sub
 assert(window.document.querySelector(".detail-glyph")?.textContent === "日", "정확한 한자 검색 상세 이동 실패")
 
 click('[data-action="back"]')
-const clearButton = window.document.querySelector(".search-clear")
-clearButton.click()
+const clearInput = window.document.getElementById("searchInput")
+clearInput.value = "날 일"
+clearInput.dispatchEvent(new window.Event("input", { bubbles: true }))
+clearInput.value = ""
+clearInput.dispatchEvent(new window.Event("input", { bubbles: true }))
 assert(window.document.getElementById("searchInput").value === "" && window.document.querySelectorAll(".kanji-card").length === 100, "검색어 지우기 실패")
 
 const n2Search = window.document.getElementById("searchInput")

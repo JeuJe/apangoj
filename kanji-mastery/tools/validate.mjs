@@ -100,6 +100,13 @@ for (const [character, label] of Object.entries(expectedJapaneseGlyphLabels)) {
   if (site?.items?.[character]?.hun !== label) errors.push(`사이트 일본어 한자 표기 오류: ${character}`)
 }
 
+const expectedJapaneseCharacters = { "더할 증": "増", "연기 연": "煙", "붓 필": "筆", "버릴 사": "捨" }
+for (const [label, character] of Object.entries(expectedJapaneseCharacters)) {
+  const item = db?.items?.find((entry) => entry.hun === label)
+  if (item?.char !== character) errors.push(`일본어 자형 점검 오류: ${label} → ${item?.char || "누락"}`)
+  if (site?.items?.[character]?.hun !== label) errors.push(`일본어 원문 자형 불일치: ${label}`)
+}
+
 const counts = Object.fromEntries(["N5", "N4", "N3", "N2", "N1"].map((level) => [
   level,
   db.items.filter((item) => item.level === level).length

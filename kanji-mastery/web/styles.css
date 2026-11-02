@@ -129,14 +129,13 @@ h3 { margin-bottom: 7px; font-size: 15px; }
 .progress-track > span { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
 
 .search-box { position: relative; margin-bottom: 14px; }
-.search-box input { width: 100%; height: 54px; padding: 0 96px 0 16px; border: 1px solid var(--line); border-radius: 16px; outline: 0; background: var(--surface); color: var(--ink); font-size: 16px; }
+.search-box input { width: 100%; height: 54px; padding: 0 58px 0 16px; border: 1px solid var(--line); border-radius: 16px; outline: 0; background: var(--surface); color: var(--ink); font-size: 16px; }
+.search-box input[type="search"]::-webkit-search-cancel-button { display: none; -webkit-appearance: none; }
 .search-box input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(255,114,94,.12); }
 .detail-search { margin-bottom: 16px; }
 .detail-search input { background: #fff; }
-.search-submit, .search-clear { position: absolute; top: 6px; display: grid; place-items: center; width: 42px; height: 42px; padding: 0; border: 0; border-radius: 12px; background: transparent; cursor: pointer; }
-.search-submit { right: 48px; color: var(--accent-dark); font-size: 25px; font-weight: 900; line-height: 1; }
-.search-clear { right: 6px; color: var(--muted); font-size: 28px; font-weight: 500; line-height: 1; }
-.search-submit:active, .search-clear:active { background: #f0f1f4; transform: scale(.94); }
+.search-submit { position: absolute; top: 6px; right: 6px; display: grid; place-items: center; width: 42px; height: 42px; padding: 0; border: 0; border-radius: 12px; background: transparent; color: var(--accent-dark); font-size: 25px; font-weight: 900; line-height: 1; cursor: pointer; }
+.search-submit:active { background: #f0f1f4; transform: scale(.94); }
 .chip-row { display: flex; gap: 8px; overflow-x: auto; margin: 0 -18px 16px; padding: 0 18px 3px; scrollbar-width: none; }
 .chip-row::-webkit-scrollbar { display: none; }
 .chip { flex: 0 0 auto; min-height: 36px; padding: 0 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--muted); font-size: 12px; font-weight: 800; }
@@ -168,6 +167,7 @@ h3 { margin-bottom: 7px; font-size: 15px; }
 .detail-meta .eyebrow { color: #ffad9f; }
 .detail-meta h1 { margin-bottom: 7px; font-size: 25px; }
 .detail-meta p { margin: 0; color: #c6cada; font-size: 14px; line-height: 1.65; }
+.detail-meta .detail-hun { margin-bottom: 2px; color: #ffad9f; font-size: 15px; font-weight: 850; }
 .meta-link { display: inline; padding: 0; border: 0; border-bottom: 1px dashed rgba(255,255,255,.55); background: none; color: white; font-weight: 850; }
 .pill-line { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
 .soft-pill { padding: 5px 9px; border-radius: 99px; background: rgba(255,255,255,.1); color: white; font-size: 10px; font-weight: 800; }
