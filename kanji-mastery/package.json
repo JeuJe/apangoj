@@ -7,6 +7,7 @@
   "scripts": {
     "sync:site": "node tools/sync-nihongokanji-direct.mjs",
     "sync:radicals": "node tools/sync-nihongokanji-radicals.mjs",
+    "sync:glyphs": "node tools/sync-glyph-fallbacks.mjs",
     "generate:data": "node tools/generate-kanji-data.mjs",
     "translate:examples": "node tools/translate-study-extras.mjs",
     "validate": "node tools/validate.mjs && node tools/smoke-ui.mjs",

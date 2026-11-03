@@ -9,8 +9,16 @@
 
   const HUN = window.KANJI_HUN || {}
   const SITE = window.KANJI_SITE?.items || {}
+  const GLYPHS = window.KANJI_GLYPHS?.paths || {}
   function supportedGlyphText(value) {
     return String(value || "")
+  }
+  function sourceTextHtml(value, className = "source-glyph") {
+    return [...String(value || "")].map((character) => {
+      const paths = GLYPHS[character]
+      if (!paths) return escapeHtml(character)
+      return `<svg class="${className}" viewBox="0 0 200 200" role="img" aria-label="${escapeHtml(character)}"><title>${escapeHtml(character)}</title>${paths.map((path) => `<path d="${escapeHtml(path)}"></path>`).join("")}</svg>`
+    }).join("")
   }
   function siteReadings(value, fallback, useFallback = true) {
     const readings = String(value || "").split(/[、,]/u).map((reading) => reading.trim()).filter(Boolean)
@@ -158,17 +166,18 @@
     const components = new Set([radicalPart(item), ...item.components, ...item.components.map(canonicalPart)])
     return [...String(paragraph)].map((character) => {
       const visibleCharacter = supportedGlyphText(character)
+      const visibleCharacterHtml = sourceTextHtml(character)
       const linked = linkedPartItem(character)
       const shape = shapePartInfo(character) || shapePartInfo(canonicalPart(character))
-      if (character === item.char || !/\p{Script=Han}/u.test(character)) return escapeHtml(visibleCharacter)
-      if (linked) return `<button class="inline-kanji-link" data-detail="${linked.id}" aria-label="${escapeHtml(visibleCharacter)} 상세 보기">${escapeHtml(visibleCharacter)}</button>`
+      if (character === item.char || !/\p{Script=Han}/u.test(character)) return visibleCharacterHtml
+      if (linked) return `<button class="inline-kanji-link" data-detail="${linked.id}" aria-label="${escapeHtml(visibleCharacter)} 상세 보기">${visibleCharacterHtml}</button>`
       if (shape || components.has(character)) {
         const part = shape || shapePartInfo(canonicalPart(character))
         return part
-          ? `<button class="inline-part-link" data-part="${escapeHtml(part.character)}" aria-label="${escapeHtml(visibleCharacter)} 모양자·부수 설명 보기">${escapeHtml(visibleCharacter)}</button>`
-          : escapeHtml(visibleCharacter)
+          ? `<button class="inline-part-link" data-part="${escapeHtml(part.character)}" aria-label="${escapeHtml(visibleCharacter)} 모양자·부수 설명 보기">${visibleCharacterHtml}</button>`
+          : visibleCharacterHtml
       }
-      return escapeHtml(visibleCharacter)
+      return visibleCharacterHtml
     }).join("")
   }
 
@@ -176,7 +185,7 @@
     if (!SHAPE_PARTS.length) return ""
     return `<details class="part-directory">
       <summary>모양자·부수 일람 <span>${SHAPE_PARTS.length}개</span></summary>
-      <div class="part-directory-grid">${SHAPE_PARTS.map((part) => `<button class="part-directory-item" data-part="${escapeHtml(part.character)}"><strong>${escapeHtml(supportedGlyphText(part.display))}</strong><span>${escapeHtml(part.meaning)}</span></button>`).join("")}</div>
+      <div class="part-directory-grid">${SHAPE_PARTS.map((part) => `<button class="part-directory-item" data-part="${escapeHtml(part.character)}"><strong>${sourceTextHtml(part.display, "source-glyph part-glyph")}</strong><span>${escapeHtml(part.meaning)}</span></button>`).join("")}</div>
     </details>`
   }
 
@@ -185,8 +194,8 @@
     if (!part) return ""
     const explanations = part.explanation || []
     return `<article class="info-card part-detail-card" id="partDetailCard">
-      <div class="info-label"><span>모양자·부수 · ${escapeHtml(supportedGlyphText(part.display))}</span><button class="text-button" data-action="closePart">닫기</button></div>
-      <p class="part-title">${escapeHtml(supportedGlyphText(part.display))}</p>
+      <div class="info-label"><span>모양자·부수 · ${sourceTextHtml(part.display, "source-glyph part-glyph")}</span><button class="text-button" data-action="closePart">닫기</button></div>
+      <p class="part-title">${sourceTextHtml(part.display, "source-glyph part-glyph")}</p>
       <p class="part-meaning">${escapeHtml(part.meaning)}</p>
       ${explanations.length ? `<div class="explanation-text">${explanations.map((paragraph) => `<p>${explanationHtml({ char: "", components: [] }, paragraph)}</p>`).join("")}</div>` : ""}
       <div class="part-detail-actions"><a class="source-link external-link" data-external-url="${escapeHtml(part.sourceUrl)}" href="${escapeHtml(part.sourceUrl)}" target="_blank" rel="noopener noreferrer">원문 보기 ↗</a></div>
@@ -383,16 +392,16 @@
   function readingWordTemplate(value) {
     const text = String(value || "").trim()
     const match = text.match(/^(.+?)\s+([가-힣].*)$/u)
-    if (!match) return `<span class="reading-word-line"><span class="reading-word-japanese">${escapeHtml(text)}</span></span>`
-    return `<span class="reading-word-line"><span class="reading-word-japanese">${escapeHtml(match[1])}</span><span class="reading-word-meaning">${escapeHtml(match[2])}</span></span>`
+    if (!match) return `<span class="reading-word-line"><span class="reading-word-japanese">${sourceTextHtml(text)}</span></span>`
+    return `<span class="reading-word-line"><span class="reading-word-japanese">${sourceTextHtml(match[1])}</span><span class="reading-word-meaning">${escapeHtml(match[2])}</span></span>`
   }
 
   function readingEntryTemplate(entry) {
     const text = supportedGlyphText(entry?.text).trim()
     const match = text.match(/^(\S+)\s+(.+)$/u)
-    if (!match || /[가-힣]/u.test(match[1])) return `<div class="reading-entry reading-entry-plain">${escapeHtml(text)}</div>`
+    if (!match || /[가-힣]/u.test(match[1])) return `<div class="reading-entry reading-entry-plain">${sourceTextHtml(text)}</div>`
     const words = match[2].split(/\s*,\s*/u).map((word) => word.trim()).filter(Boolean)
-    return `<div class="reading-entry"><strong class="reading-entry-reading">${escapeHtml(match[1])}</strong><div class="reading-word-list">${words.map(readingWordTemplate).join("")}</div></div>`
+    return `<div class="reading-entry"><strong class="reading-entry-reading">${sourceTextHtml(match[1])}</strong><div class="reading-word-list">${words.map(readingWordTemplate).join("")}</div></div>`
   }
 
   function fallbackContextSentence(item, target) {
@@ -460,7 +469,7 @@
     const isOn = type === "on"
     const detail = item[`${type}Detail`]
     const label = isOn ? "3. 音読み · 음독 상세" : "4. 訓読み · 훈독 상세"
-    const paragraphs = (detail?.paragraphs || []).map((paragraph) => `<p class="reading-guide">${escapeHtml(supportedGlyphText(paragraph))}</p>`).join("")
+    const paragraphs = (detail?.paragraphs || []).map((paragraph) => `<p class="reading-guide">${sourceTextHtml(paragraph)}</p>`).join("")
     const entries = (detail?.entries || []).map(readingEntryTemplate).join("")
     return `<article class="info-card reading-detail-card ${isOn ? "on-reading" : "kun-reading"}">
       <div class="info-label"><span>${label}</span></div>

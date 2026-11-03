@@ -17,6 +17,7 @@ window.eval(fs.readFileSync(path.join(root, "web/data/kanji-site.js"), "utf8"))
 window.eval(fs.readFileSync(path.join(root, "web/data/kanji-radicals.js"), "utf8"))
 window.eval(fs.readFileSync(path.join(root, "web/data/kanji-examples.js"), "utf8"))
 window.eval(fs.readFileSync(path.join(root, "web/data/kanji-study-extras.js"), "utf8"))
+window.eval(fs.readFileSync(path.join(root, "web/data/kanji-glyphs.js"), "utf8"))
 window.eval(fs.readFileSync(path.join(root, "web/main.js"), "utf8"))
 
 const click = (selector) => {
@@ -131,6 +132,7 @@ sourceGlyphSearch.value = "印"
 window.document.getElementById("searchForm").dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }))
 assert(window.document.querySelector(".detail-glyph")?.textContent === "印", "정확한 印 상세 이동 실패")
 assert(text().includes("印 =𠀉+卩") && !text().includes("印 = 手 + 卩"), "원문 모양자 치환 노출")
+assert(window.document.querySelector(".explanation-card .source-glyph path"), "확장 한자 글리프 SVG 렌더링 누락")
 click('[data-action="back"]')
 
 click('[data-nav="range"]')
