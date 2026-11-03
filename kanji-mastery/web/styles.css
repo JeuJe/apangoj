@@ -271,6 +271,16 @@ h3 { margin-bottom: 7px; font-size: 15px; }
 .question-card { padding: 24px 18px; border: 1px solid var(--line); border-radius: 26px; background: var(--surface); text-align: center; box-shadow: var(--shadow); }
 .question-card .eyebrow { margin-bottom: 14px; }
 .question-glyph { margin: 5px 0 18px; font-family: "Noto Serif JP", serif; font-size: clamp(82px, 27vw, 128px); line-height: 1; }
+.question-source-glyph { display: inline-block; width: 1em; height: 1em; vertical-align: -.08em; }
+.range-question-card { padding-bottom: 18px; }
+.range-answer { margin-top: 22px; border-top: 1px solid var(--line); text-align: left; }
+.range-answer summary { padding: 15px 4px 3px; color: var(--accent-dark); cursor: pointer; font-size: 15px; font-weight: 900; text-align: center; list-style-position: inside; }
+.range-answer-body { padding: 12px 4px 2px; }
+.range-answer-row { display: grid; grid-template-columns: 52px 1fr; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 14px; line-height: 1.45; }
+.range-answer-row span { color: var(--muted); font-size: 12px; font-weight: 850; }
+.range-answer-row strong { color: var(--ink); font-weight: 800; }
+.range-grade { padding-top: 16px; }
+.range-grade p { margin: 0 0 9px; color: var(--muted); font-size: 12px; font-weight: 750; text-align: center; }
 .question-word { display: grid; place-items: center; min-height: 115px; margin: 5px 0 18px; font-size: 25px; font-weight: 850; line-height: 1.35; }
 .question-prompt { min-height: 42px; margin: 0; font-size: 16px; font-weight: 800; line-height: 1.45; }
 .answer-list { display: grid; gap: 9px; margin-top: 16px; }

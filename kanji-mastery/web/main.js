@@ -737,7 +737,7 @@
   }
 
   function availableTypes(item) {
-    const types = ["meaning", "kanji", "strokes"]
+    const types = ["meaning", "kanji"]
     if (item.on.length) types.push("on")
     if (item.kun.length) types.push("kun")
     return types
@@ -791,7 +791,9 @@
       toast("출제할 한자가 없습니다.")
       return
     }
-    const questions = selected.map((item) => makeQuestion(item, ITEMS.filter((candidate) => candidate.level === item.level)))
+    const questions = mode === "range"
+      ? selected.map((item) => ({ item }))
+      : selected.map((item) => makeQuestion(item, ITEMS.filter((candidate) => candidate.level === item.level)))
     state.quiz = {
       mode,
       rangeStart: mode === "range" ? Math.min(state.quizRangeStart, state.quizRangeEnd) : null,
@@ -800,13 +802,14 @@
       index: 0,
       answers: [],
       locked: false,
-      selected: null
+      selected: null,
+      revealed: false
     }
     navigate("quizRun")
   }
 
   function questionTypeLabel(type) {
-    return { meaning: "한국 훈음", on: "음독", kun: "훈독", kanji: "한자 찾기", strokes: "획수" }[type]
+    return { meaning: "한국 훈음", on: "음독", kun: "훈독", kanji: "한자 찾기" }[type]
   }
 
   function questionPrompt(question) {
@@ -814,14 +817,41 @@
       meaning: "이 한자의 한국 훈음은?",
       on: "이 한자의 음독으로 맞는 것은?",
       kun: "이 한자의 훈독으로 맞는 것은?",
-      kanji: `‘${escapeHtml(question.item.hun)}’에 해당하는 한자는?`,
-      strokes: "이 한자의 총 획수는?"
+      kanji: `‘${escapeHtml(question.item.hun)}’에 해당하는 한자는?`
     }[question.type]
+  }
+
+  function rangeAnswerTemplate(item) {
+    const meaning = koreanMeaning(item)
+    const on = item.on.join(" · ") || "정식 음독 없음"
+    const kun = item.kun.join(" · ") || "정식 훈독 없음"
+    return `<details class="range-answer">
+        <summary>답안 확인</summary>
+        <div class="range-answer-body">
+          <div class="range-answer-row"><span>의미</span><strong>${escapeHtml(meaning)}</strong></div>
+          <div class="range-answer-row"><span>음독</span><strong lang="ja">${escapeHtml(on)}</strong></div>
+          <div class="range-answer-row"><span>훈독</span><strong lang="ja">${escapeHtml(kun)}</strong></div>
+          <div class="range-grade"><p>기억했나요?</p><div class="detail-actions"><button class="btn ghost" data-range-result="wrong">다시 볼게요</button><button class="btn primary" data-range-result="correct">알고 있었어요</button></div></div>
+        </div>
+      </details>`
+  }
+
+  function rangeQuizRunTemplate() {
+    const quiz = state.quiz
+    const question = quiz.questions[quiz.index]
+    const item = question.item
+    const percent = Math.round((quiz.index + 1) / quiz.questions.length * 100)
+    return `<div class="quiz-top"><button class="icon-button" data-action="quitQuiz">×</button><span class="progress-track"><span style="width:${percent}%"></span></span><strong>${quiz.index + 1}/${quiz.questions.length}</strong></div>
+      <section class="question-card range-question-card">
+        <div class="question-glyph">${sourceTextHtml(item.char, "question-source-glyph")}</div>
+        ${rangeAnswerTemplate(item)}
+      </section>`
   }
 
   function quizRunTemplate() {
     const quiz = state.quiz
     if (!quiz) return quizSetupTemplate()
+    if (quiz.mode === "range") return rangeQuizRunTemplate()
     const q = quiz.questions[quiz.index]
     const percent = Math.round((quiz.index + (quiz.locked ? 1 : 0)) / quiz.questions.length * 100)
     const wordQuestion = q.type === "kanji"
@@ -839,7 +869,7 @@
             else if (index === quiz.selected) cls = "wrong"
             else cls = "dim"
           }
-          return `<button class="answer ${cls}" data-answer="${index}" ${quiz.locked ? "disabled" : ""}>${escapeHtml(option)}${q.type === "strokes" ? "획" : ""}</button>`
+          return `<button class="answer ${cls}" data-answer="${index}" ${quiz.locked ? "disabled" : ""}>${escapeHtml(option)}</button>`
         }).join("")}
       </div>
       ${quiz.locked ? `<div class="feedback"><strong>${quiz.answers.at(-1).correct ? "정답입니다" : "오답입니다"}</strong><p>${q.item.char} · ${escapeHtml(q.item.hun)}<br>음독 ${escapeHtml(q.item.on.join(" · ") || "없음")} / 훈독 ${escapeHtml(q.item.kun.join(" · ") || "없음")}</p></div><button class="btn primary full" style="margin-top:12px" data-action="nextQuestion">${quiz.index + 1 === quiz.questions.length ? "결과 보기" : "다음 문제"}</button>` : ""}
@@ -857,6 +887,22 @@
     quiz.answers.push({ id: q.item.id, level: q.item.level, type: q.type, correct, selected, answer: q.correct })
     updateProgress(q.item.id, correct)
     render()
+  }
+
+  function answerRange(correct) {
+    const quiz = state.quiz
+    if (!quiz || quiz.mode !== "range") return
+    const question = quiz.questions[quiz.index]
+    const item = question.item
+    quiz.answers.push({ id: item.id, level: item.level, type: "range", correct, selected: correct ? "known" : "review", answer: "revealed" })
+    updateProgress(item.id, correct)
+    if (quiz.index + 1 >= quiz.questions.length) finishQuiz()
+    else {
+      quiz.index += 1
+      quiz.revealed = false
+      render()
+      window.scrollTo(0, 0)
+    }
   }
 
   function finishQuiz() {
@@ -1125,6 +1171,7 @@
       render()
     }
     if (target.dataset.answer) answerQuestion(Number(target.dataset.answer))
+    if (target.dataset.rangeResult) answerRange(target.dataset.rangeResult === "correct")
     if (target.dataset.rate) {
       updateProgress(Number(target.dataset.id), target.dataset.rate === "correct")
       toast(target.dataset.rate === "correct" ? "학습 기록에 반영했습니다." : "복습 목록에 추가했습니다.")
