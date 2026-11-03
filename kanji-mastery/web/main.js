@@ -16,8 +16,11 @@
   function sourceTextHtml(value, className = "source-glyph") {
     return [...String(value || "")].map((character) => {
       const paths = GLYPHS[character]
-      if (!paths) return escapeHtml(character)
-      return `<svg class="${className}" viewBox="0 0 200 200" role="img" aria-label="${escapeHtml(character)}"><title>${escapeHtml(character)}</title>${paths.map((path) => `<path d="${escapeHtml(path)}"></path>`).join("")}</svg>`
+      if (!paths) {
+        const escaped = escapeHtml(character)
+        return /\p{Script=Han}/u.test(character) ? `<span class="${className}" lang="ja">${escaped}</span>` : escaped
+      }
+      return `<svg class="${className}" lang="ja" viewBox="0 0 200 200" role="img" aria-label="${escapeHtml(character)}"><title>${escapeHtml(character)}</title>${paths.map((path) => `<path d="${escapeHtml(path)}"></path>`).join("")}</svg>`
     }).join("")
   }
   function siteReadings(value, fallback, useFallback = true) {
@@ -563,11 +566,11 @@
     const dot = p.mastery >= 4 ? "mastered" : p.seen > 0 ? "learned" : ""
     const readings = item.on.join(" · ") || item.kun.join(" · ") || "독음 없음"
     const reading = state.showListReadings
-      ? `<h3>#${item.id} ${escapeHtml(item.char)}</h3><p>${escapeHtml(item.hun)} · ${escapeHtml(readings)}</p>`
+      ? `<h3>#${item.id} ${sourceTextHtml(item.char)}</h3><p>${escapeHtml(item.hun)} · ${escapeHtml(readings)}</p>`
       : `<h3 class="reading-mask">#${item.id}</h3>`
     return `<button class="kanji-card ${state.showListReadings ? "" : "is-reading-hidden"}" data-detail="${item.id}">
       <span class="master-dot ${dot}"></span>
-      <span class="kanji-glyph">${item.char}</span>
+      <span class="kanji-glyph">${sourceTextHtml(item.char)}</span>
       <span>${reading}</span>
     </button>`
   }
@@ -638,10 +641,10 @@
       </div>
       ${searchFormTemplate("detail-search")}
       <section class="detail-hero">
-        <div class="detail-glyph">${item.char}</div>
+        <div class="detail-glyph">${sourceTextHtml(item.char, "detail-source-glyph")}</div>
         <div class="detail-meta">
           <p class="eyebrow">#${item.id} · ${item.level}</p>
-          <h1>${escapeHtml(item.char)}</h1>
+          <h1 lang="ja">${escapeHtml(item.char)}</h1>
           <p class="detail-hun">${escapeHtml(item.hun)}</p>
           <p>${item.strokes}획 · ${radical ? `부수 ${shapePartInfo(radical) ? `<button class="inline-part-link detail-part-link" data-part="${escapeHtml(shapePartInfo(radical).character)}">${escapeHtml(radical)}</button>` : escapeHtml(radical)} ${item.radical}번${radicalData ? ` · ${escapeHtml(radicalData.name)}` : ""}` : `부수 번호 ${item.radical ?? "-"}`}${item.freq ? ` · 빈도 ${item.freq}위` : ""}</p>
           <div class="pill-line"><span class="soft-pill">숙달 ${p.mastery}/5</span>${item.grade ? `<span class="soft-pill">일본 학년 ${item.grade}</span>` : ""}</div>
@@ -859,7 +862,7 @@
       <div class="quiz-top"><button class="icon-button" data-action="quitQuiz">×</button><span class="progress-track"><span style="width:${percent}%"></span></span><strong>${quiz.index + 1}/${quiz.questions.length}</strong></div>
       <section class="question-card">
         <p class="eyebrow">${q.item.level} · ${questionTypeLabel(q.type)}</p>
-        ${wordQuestion ? `<div class="question-word">${questionPrompt(q)}</div>` : `<div class="question-glyph">${q.item.char}</div><p class="question-prompt">${questionPrompt(q)}</p>`}
+        ${wordQuestion ? `<div class="question-word">${questionPrompt(q)}</div>` : `<div class="question-glyph">${sourceTextHtml(q.item.char, "question-source-glyph")}</div><p class="question-prompt">${questionPrompt(q)}</p>`}
       </section>
       <div class="answer-list">
         ${q.options.map((option, index) => {
@@ -872,7 +875,7 @@
           return `<button class="answer ${cls}" data-answer="${index}" ${quiz.locked ? "disabled" : ""}>${escapeHtml(option)}</button>`
         }).join("")}
       </div>
-      ${quiz.locked ? `<div class="feedback"><strong>${quiz.answers.at(-1).correct ? "정답입니다" : "오답입니다"}</strong><p>${q.item.char} · ${escapeHtml(q.item.hun)}<br>음독 ${escapeHtml(q.item.on.join(" · ") || "없음")} / 훈독 ${escapeHtml(q.item.kun.join(" · ") || "없음")}</p></div><button class="btn primary full" style="margin-top:12px" data-action="nextQuestion">${quiz.index + 1 === quiz.questions.length ? "결과 보기" : "다음 문제"}</button>` : ""}
+      ${quiz.locked ? `<div class="feedback"><strong>${quiz.answers.at(-1).correct ? "정답입니다" : "오답입니다"}</strong><p>${sourceTextHtml(q.item.char)} · ${escapeHtml(q.item.hun)}<br>음독 ${escapeHtml(q.item.on.join(" · ") || "없음")} / 훈독 ${escapeHtml(q.item.kun.join(" · ") || "없음")}</p></div><button class="btn primary full" style="margin-top:12px" data-action="nextQuestion">${quiz.index + 1 === quiz.questions.length ? "결과 보기" : "다음 문제"}</button>` : ""}
     `
   }
 
@@ -986,7 +989,7 @@
       </section>
       <section class="section">
         <div class="section-head"><h2>취약 한자</h2>${weak.length ? '<button class="text-button" data-action="mistakes">집중 시험</button>' : ""}</div>
-        ${weak.length ? `<div class="weak-list">${weak.map(({ item }) => `<button class="weak-kanji" data-detail="${item.id}">${item.char}</button>`).join("")}</div>` : '<div class="empty">아직 오답 기록이 없습니다.</div>'}
+        ${weak.length ? `<div class="weak-list">${weak.map(({ item }) => `<button class="weak-kanji" data-detail="${item.id}">${sourceTextHtml(item.char)}</button>`).join("")}</div>` : '<div class="empty">아직 오답 기록이 없습니다.</div>'}
       </section>
       <section class="section">
         <div class="section-head"><h2>최근 시험</h2></div>

@@ -16,6 +16,8 @@
   font-family: -apple-system, BlinkMacSystemFont, "Noto Sans KR", "Noto Sans JP", "Apple SD Gothic Neo", sans-serif;
 }
 
+[lang="ja"], :lang(ja) { font-family: "Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", "Noto Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif; font-variant-east-asian: jis04; }
+
 * { box-sizing: border-box; }
 
 html, body { margin: 0; min-height: 100%; background: var(--paper); color: var(--ink); }
@@ -166,6 +168,7 @@ h3 { margin-bottom: 7px; font-size: 15px; }
 
 .detail-hero { display: grid; grid-template-columns: 128px 1fr; gap: 20px; align-items: center; padding: 22px; border-radius: 26px; background: var(--ink); color: white; }
 .detail-glyph { display: grid; place-items: center; aspect-ratio: 1; border: 1px solid rgba(255,255,255,.18); border-radius: 24px; background: rgba(255,255,255,.08); font-family: "Noto Serif JP", serif; font-size: 82px; }
+.detail-source-glyph { width: 1em; height: 1em; }
 .detail-meta .eyebrow { color: #ffad9f; }
 .detail-meta h1 { margin-bottom: 7px; font-size: 25px; }
 .detail-meta p { margin: 0; color: #c6cada; font-size: 14px; line-height: 1.65; }

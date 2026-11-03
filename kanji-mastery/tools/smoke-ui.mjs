@@ -53,6 +53,7 @@ assert(window.document.querySelector(".search-clear"), "큰 검색어 지우기 
 
 click(".kanji-card")
 assert(window.document.querySelector(".detail-glyph"), "상세 화면 렌더링 실패")
+assert(window.document.querySelector('.detail-glyph [lang="ja"]'), "상세 한자 일본어 글리프 설정 누락")
 assert(window.document.querySelector("#searchInput")?.type === "search" && window.document.querySelector("#searchInput")?.getAttribute("enterkeyhint") === "search", "상세 검색창 키보드 검색 설정 누락")
 assert(window.document.querySelector(".explanation-card"), "한자 설명 렌더링 실패")
 assert(text().includes("음독 : ニチ · ジツ") && text().includes("훈독 : ひ · か"), "기본 정보 독음 요약 누락")
