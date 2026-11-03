@@ -9,42 +9,23 @@
 
   const HUN = window.KANJI_HUN || {}
   const SITE = window.KANJI_SITE?.items || {}
-  const EXPLANATION_OVERRIDES = {
-    "印": [
-      "印 = 手 + 卩。",
-      "「手」는 손을 본뜬 모양자입니다.",
-      "「卩」는 무릎을 꿇고 앉은 사람을 본뜬 모양자입니다.",
-      "印은 손으로 사람을 눌러 표시를 남기는 모습을 본떠, ‘도장·표시’를 뜻합니다."
-    ]
-  }
-  const UNSUPPORTED_GLYPH_REPLACEMENTS = {
-    "𠂉": "人", "㐄": "足", "䒑": "艹", "⺍": "火", "㐅": "乂", "𠂒": "牛", "⻌": "辶",
-    "𠂇": "手", "𠔼": "囗", "⺕": "手", "𤣩": "玉", "⻏": "阝", "𠃊": "乚", "⻖": "阝", "𠮠": "骨",
-    "𠦝": "日", "⺈": "刀", "⺶": "羊", "𭤨": "旗", "㑒": "僉", "𥫗": "竹", "𠫔": "机", "𡗗": "芽",
-    "𦣻": "頁", "𧘇": "人", "𠆢": "人", "𠀎": "布", "⺀": "丶丶", "𤴓": "正", "𠃍": "弓", "⺌": "小",
-    "𠃌": "丁", "⺤": "爪", "㠯": "己", "㦮": "戈", "𠂤": "山", "𦍌": "羊", "𮥶": "鳥", "㓁": "网",
-    "𠀉": "手", "㕣": "口", "𦰩": "漢", "𤰇": "矢", "𠀗": "矢", "𤰔": "糸", "㔾": "卩", "𠘧": "網",
-    "𠂎": "門", "𠬶": "帚", "㐱": "人", "⺨": "犭", "𠂢": "水", "𢦏": "戈", "𠮛": "鬲", "㐫": "凶",
-    "𠀐": "上", "𦥑": "手", "㐮": "襄", "𠙻": "缶", "⺎": "山", "𦉰": "罒", "⺊": "卜", "𡰥": "冊",
-    "𠂆": "冖", "𭾱": "壊", "⺗": "心", "㐭": "稟", "𦈢": "缶", "𤴔": "止", "㐬": "流", "𠃜": "眉",
-    "⺁": "厂", "𡨄": "寒", "𠤎": "七", "𠚍": "文", "㫃": "旗", "𫝀": "足", "𭥍": "城", "⺫": "目"
-  }
   function supportedGlyphText(value) {
-    return [...String(value || "")].map((character) => UNSUPPORTED_GLYPH_REPLACEMENTS[character] || character).join("")
+    return String(value || "")
   }
-  function siteReadings(value, fallback) {
+  function siteReadings(value, fallback, useFallback = true) {
     const readings = String(value || "").split(/[、,]/u).map((reading) => reading.trim()).filter(Boolean)
-    return readings.length ? readings : fallback
+    return readings.length || !useFallback ? readings : fallback
   }
   const ITEMS = DB.items.map((item) => {
     const source = SITE[item.char]
+    const hasSourceReadings = Boolean(source)
     return {
       ...item,
       hun: source?.hun || HUN[item.char] || item.hun,
-      on: siteReadings(source?.on, item.on),
-      kun: siteReadings(source?.kun, item.kun),
+      on: siteReadings(source?.on, item.on, !hasSourceReadings),
+      kun: siteReadings(source?.kun, item.kun, !hasSourceReadings),
       siteMeaning: source?.meaning || "",
-      explanation: EXPLANATION_OVERRIDES[item.char] || source?.explanation || [],
+      explanation: source?.explanation || [],
       onDetail: source?.onDetail || { paragraphs: [], entries: [] },
       kunDetail: source?.kunDetail || { paragraphs: [], entries: [] },
       sourceUrl: source?.sourceUrl || `https://nihongokanji.com/?s=${encodeURIComponent(item.char)}`
@@ -547,15 +528,24 @@
   function filteredItems() {
     const query = state.query.trim().toLowerCase()
     return ITEMS.filter((item) => {
+      if (query) {
+        const detailText = [
+          ...(item.explanation || []),
+          ...(item.onDetail?.paragraphs || []),
+          ...(item.onDetail?.entries || []).map((entry) => entry.text),
+          ...(item.kunDetail?.paragraphs || []),
+          ...(item.kunDetail?.entries || []).map((entry) => entry.text)
+        ]
+        return [item.char, item.hun, item.siteMeaning, item.on.join(" "), item.kun.join(" "), item.meanings.join(" "), String(item.id), ...detailText]
+          .some((value) => String(value || "").toLowerCase().includes(query))
+      }
       if (state.level !== "ALL" && item.level !== state.level) return false
       const p = progressOf(item.id)
       if (state.status === "NEW" && p.seen > 0) return false
       if (state.status === "LEARNING" && !(p.seen > 0 && p.mastery < 4)) return false
       if (state.status === "MASTERED" && p.mastery < 4) return false
       if (state.status === "FAVORITE" && !store.favorites.includes(item.id)) return false
-      if (!query) return true
-      return [item.char, item.hun, item.siteMeaning, item.on.join(" "), item.kun.join(" "), item.meanings.join(" "), String(item.id)]
-        .some((value) => value.toLowerCase().includes(query))
+      return true
     })
   }
 
