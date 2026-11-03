@@ -130,7 +130,7 @@ const sourceGlyphSearch = window.document.getElementById("searchInput")
 sourceGlyphSearch.value = "印"
 window.document.getElementById("searchForm").dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }))
 assert(window.document.querySelector(".detail-glyph")?.textContent === "印", "정확한 印 상세 이동 실패")
-assert(text().includes("印 = 𠀉 + 卩") && !text().includes("印 = 手 + 卩"), "원문 모양자 치환 노출")
+assert(text().includes("印 =𠀉+卩") && !text().includes("印 = 手 + 卩"), "원문 모양자 치환 노출")
 click('[data-action="back"]')
 
 click('[data-nav="range"]')
