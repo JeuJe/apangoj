@@ -24,9 +24,27 @@ function collectRareCharacters() {
       if (character.codePointAt(0) >= 0x20000) characters.add(character)
     }
   }
+  const addBlocks = (blocks) => {
+    for (const block of blocks || []) {
+      if (typeof block === "string") {
+        add(block)
+        continue
+      }
+      add(block.text)
+      add(block.summary)
+      add(block.reading)
+      add(block.items?.join(" "))
+      for (const example of block.examples || []) {
+        add(example.japanese)
+        add(example.meaning)
+      }
+      addBlocks(block.blocks || block.paragraphs)
+    }
+  }
   for (const item of Object.values(site.items)) {
-    add(item.explanation?.join(" "))
+    addBlocks(item.explanation)
     for (const detail of [item.onDetail, item.kunDetail]) {
+      addBlocks(detail?.blocks)
       add(detail?.paragraphs?.join(" "))
       add(detail?.entries?.map((entry) => entry.text).join(" "))
     }

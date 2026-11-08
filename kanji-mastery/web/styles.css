@@ -169,9 +169,11 @@ h3 { margin-bottom: 7px; font-size: 15px; }
 .detail-hero { display: grid; grid-template-columns: 128px 1fr; gap: 20px; align-items: center; padding: 22px; border-radius: 26px; background: var(--ink); color: white; }
 .detail-glyph { display: grid; place-items: center; aspect-ratio: 1; border: 1px solid rgba(255,255,255,.18); border-radius: 24px; background: rgba(255,255,255,.08); font-family: "Noto Serif JP", serif; font-size: 82px; line-height: 1; }
 .detail-source-glyph { display: block; width: 1em; height: 1em; line-height: 1; vertical-align: 0; }
+.detail-meta { min-width: 0; }
 .detail-meta .eyebrow { color: #ffad9f; }
 .detail-meta h1 { margin-bottom: 7px; font-size: 25px; }
 .detail-meta p { margin: 0; color: #c6cada; font-size: 14px; line-height: 1.65; }
+.detail-meta p, .basic-readings p { overflow-wrap: anywhere; }
 .detail-meta .detail-hun { margin-bottom: 2px; color: #ffad9f; font-size: 15px; font-weight: 850; }
 .meta-link { display: inline; padding: 0; border: 0; border-bottom: 1px dashed rgba(255,255,255,.55); background: none; color: white; font-weight: 850; }
 .pill-line { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
@@ -188,6 +190,14 @@ h3 { margin-bottom: 7px; font-size: 15px; }
 .explanation-text { color: var(--ink-2); font-size: 16px; font-weight: 650; line-height: 1.85; word-break: keep-all; }
 .explanation-text p { margin: 0 0 13px; }
 .explanation-text p:last-child { margin-bottom: 0; }
+.shape-formula { padding: 10px 12px; border-radius: 12px; background: #fff0e8; color: var(--accent-dark); font-size: 17px; font-weight: 900; }
+.explanation-list { display: grid; gap: 7px; margin: 0 0 14px; padding-left: 22px; }
+.shape-more { margin: 4px 0 14px; border: 1px solid #eadfd4; border-radius: 14px; background: rgba(255,255,255,.72); }
+.shape-more summary { cursor: pointer; padding: 12px 14px; color: var(--accent-dark); font-size: 14px; font-weight: 900; list-style: none; }
+.shape-more summary::-webkit-details-marker { display: none; }
+.shape-more summary::after { content: "＋"; float: right; color: var(--muted); }
+.shape-more[open] summary::after { content: "－"; }
+.shape-more-body { padding: 0 14px 14px; }
 .source-link { color: var(--accent-dark); font-size: 12px; font-weight: 900; letter-spacing: 0; text-decoration: none; }
 .inline-kanji-link { display: inline; padding: 0 2px; border: 0; border-bottom: 2px solid #f0a397; background: #fff0ed; color: #a53d31; font-family: inherit; font-size: inherit; font-weight: 900; line-height: inherit; }
 .inline-part-link { display: inline; padding: 0 2px; border: 0; border-bottom: 2px solid #aebce0; background: #edf2ff; color: #476aa8; font-family: inherit; font-size: inherit; font-weight: 900; line-height: inherit; }
@@ -218,7 +228,13 @@ h3 { margin-bottom: 7px; font-size: 15px; }
 .part-directory-item span { overflow: hidden; color: var(--muted); font-size: 10px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
 .reading-detail-card { background: #fbfcff; }
 .reading-detail-card.kun-reading { background: #fffaf6; }
-.reading-guide { margin: 0 0 13px; color: var(--ink-2); font-size: 15px; font-weight: 650; line-height: 1.8; }
+.reading-detail-content { display: grid; gap: 11px; }
+.reading-group-title { margin: 7px 0 0; padding: 10px 12px; border-left: 4px solid var(--accent); border-radius: 0 12px 12px 0; background: rgba(255,114,94,.08); color: var(--ink); font-size: 16px; line-height: 1.55; }
+.reading-group-title:first-child { margin-top: 0; }
+.reading-subheading { margin: 2px 0 -2px; color: var(--ink-2); font-size: 14px; }
+.reading-guide { margin: 0; color: var(--ink-2); font-size: 15px; font-weight: 650; line-height: 1.8; }
+.reading-guide-list { display: grid; gap: 7px; margin: -2px 0 2px; padding-left: 22px; color: var(--ink-2); font-size: 14px; font-weight: 650; line-height: 1.7; }
+.reading-image-note { margin: 0; padding: 9px 11px; border-radius: 11px; background: #f0f3f8; color: var(--muted); font-size: 12px; font-weight: 750; }
 .reading-entry-list { display: grid; gap: 11px; }
 .reading-entry { display: grid; grid-template-columns: minmax(50px, auto) 1fr; gap: 12px; align-items: start; margin: 0; padding: 12px 13px; border: 1px solid #dfe3ec; border-radius: 14px; background: white; color: var(--ink-2); font-size: 14px; line-height: 1.65; }
 .reading-entry-reading { color: var(--accent-dark); font-family: "Noto Sans JP", "Noto Sans KR", sans-serif; font-size: 24px; font-weight: 950; line-height: 1.2; }
@@ -229,6 +245,8 @@ h3 { margin-bottom: 7px; font-size: 15px; }
 .reading-word-line:last-child { padding-bottom: 0; border-bottom: 0; }
 .reading-word-japanese { font-family: "Noto Serif JP", "Yu Mincho", serif; font-size: 16px; font-weight: 850; }
 .reading-word-meaning { color: var(--muted); font-size: 13px; }
+.reading-sentence-line { display: grid; gap: 3px; align-items: start; }
+.reading-sentence-line .reading-word-meaning { padding-left: 9px; border-left: 3px solid #e5d9ce; }
 .reading-entry-plain { display: block; }
 .no-reading { margin: 0; padding: 12px; border-radius: 12px; background: #f1f2f5; color: var(--muted); font-size: 13px; }
 .study-section { margin-top: 24px; }

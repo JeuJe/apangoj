@@ -11,6 +11,8 @@ const dom = new JSDOM(html, { url: "https://kanji2136.local/", runScripts: "outs
 const { window } = dom
 window.scrollTo = () => {}
 window.confirm = () => true
+let openedUrl = ""
+window.open = (url) => { openedUrl = String(url) }
 window.eval(fs.readFileSync(path.join(root, "web/data/kanji-data.js"), "utf8"))
 window.eval(fs.readFileSync(path.join(root, "web/data/kanji-hun.js"), "utf8"))
 window.eval(fs.readFileSync(path.join(root, "web/data/kanji-site.js"), "utf8"))
@@ -72,10 +74,38 @@ assert(text().includes("“날 일”. 하루, 날, 태양"), "사이트 대표 
 assert(window.document.querySelector(".source-link")?.href === "https://nihongokanji.com/8/", "한자별 원문 링크 누락")
 assert(window.document.querySelector(".source-link")?.dataset.externalUrl === "https://nihongokanji.com/8/", "외부 브라우저 링크 설정 누락")
 assert(window.document.querySelectorAll(".part-directory-item").length === 156, "일본어 한자 공부방 모양자·부수 일람 누락")
-assert(window.document.getElementById("textActionMenu"), "복사·번역 선택 메뉴 누락")
+assert(window.document.getElementById("textActionMenu"), "복사·검색하기 선택 메뉴 누락")
 assert(!text().includes("관련 단어") && !window.document.querySelector(".part-card"), "삭제 대상 컨테이너 잔존")
 assert(window.document.querySelector(".sentence-japanese")?.textContent.includes("今日") && window.document.querySelector(".sentence-japanese")?.textContent.includes("日曜日"), "예문 렌더링 실패")
 assert(text().includes("오늘은 일요일입니다."), "예문 해석 렌더링 실패")
+
+const selectedText = window.getSelection
+window.getSelection = () => ({ toString: () => "日", rangeCount: 0 })
+window.document.querySelector(".explanation-text p").dispatchEvent(new window.MouseEvent("contextmenu", { bubbles: true, clientX: 100, clientY: 180 }))
+assert(window.document.getElementById("textActionMenu")?.textContent === "복사검색하기", "길게 누르기 복사·검색하기 메뉴 구성 실패")
+assert(!window.document.querySelector('[data-action="translateSelection"]'), "길게 누르기 번역 메뉴 잔존")
+click('[data-action="searchSelection"]')
+assert(openedUrl === "https://www.google.com/search?q=%E6%97%A5", `선택 글자 검색 URL 오류: ${openedUrl}`)
+window.getSelection = selectedText
+
+const searchDetail = (character) => {
+  const detailSearchInput = window.document.getElementById("searchInput")
+  detailSearchInput.value = character
+  window.document.getElementById("searchForm").dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }))
+  assert(window.document.querySelector(".detail-glyph")?.textContent === character, `${character} 상세 이동 실패`)
+}
+searchDetail("会")
+assert(text().includes("카페에서 친구와 만났다") && !window.document.querySelector(".kun-reading .no-reading"), "会 훈독 문장 예시 또는 빈 상세 문구 오류")
+searchDetail("時")
+assert(window.document.querySelector(".shape-more") && text().includes("寺의 자세한 유래 더보기") && text().includes("“시간”이라는 뜻의 글자"), "時 접힌 모양 상세 또는 최종 뜻 누락")
+searchDetail("上")
+assert(window.document.querySelectorAll(".kun-reading .reading-group-title").length >= 4 && window.document.querySelectorAll(".kun-reading .reading-sentence-line").length >= 9, "上 훈독 4그룹 또는 문장 9개 렌더링 실패")
+searchDetail("散")
+assert(window.document.querySelectorAll(".kun-reading .reading-guide-list").length >= 2 && window.document.querySelectorAll(".kun-reading .reading-sentence-line").length >= 4, "散 훈독 목록 또는 문장 렌더링 실패")
+searchDetail("体")
+assert(window.document.querySelector(".on-reading .reading-guide-list") && window.document.querySelectorAll(".on-reading .reading-sentence-line").length >= 2, "体 음독 목록 또는 문장 렌더링 실패")
+searchDetail("三")
+assert(text().includes("그림 설명 · 三つ指"), "三 훈독 그림 설명 렌더링 실패")
 
 const detailSearch = window.document.getElementById("searchInput")
 detailSearch.value = "国"

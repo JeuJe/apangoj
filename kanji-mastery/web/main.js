@@ -27,6 +27,33 @@
     const readings = String(value || "").split(/[、,]/u).map((reading) => reading.trim()).filter(Boolean)
     return readings.length || !useFallback ? readings : fallback
   }
+  function contentBlockTexts(blocks) {
+    const result = []
+    for (const block of blocks || []) {
+      if (typeof block === "string") {
+        result.push(block)
+        continue
+      }
+      if (["formula", "paragraph", "heading", "subheading", "imageAlt"].includes(block?.type)) result.push(block.text)
+      if (block?.type === "list") result.push(...(block.items || []))
+      if (block?.type === "details") {
+        result.push(block.summary)
+        result.push(...contentBlockTexts(block.blocks || block.paragraphs || []))
+      }
+      if (block?.type === "entry") {
+        result.push(block.reading)
+        for (const example of block.examples || []) result.push(example.japanese, example.meaning)
+      }
+    }
+    return result.filter(Boolean)
+  }
+  function readingDetailTexts(detail) {
+    if (Array.isArray(detail?.blocks)) return contentBlockTexts(detail.blocks)
+    return [
+      ...(detail?.paragraphs || []),
+      ...(detail?.entries || []).map((entry) => entry.text)
+    ].filter(Boolean)
+  }
   const ITEMS = DB.items.map((item) => {
     const source = SITE[item.char]
     const hasSourceReadings = Boolean(source)
@@ -37,8 +64,8 @@
       kun: siteReadings(source?.kun, item.kun, !hasSourceReadings),
       siteMeaning: source?.meaning || "",
       explanation: source?.explanation || [],
-      onDetail: source?.onDetail || { paragraphs: [], entries: [] },
-      kunDetail: source?.kunDetail || { paragraphs: [], entries: [] },
+      onDetail: source?.onDetail || { blocks: [] },
+      kunDetail: source?.kunDetail || { blocks: [] },
       sourceUrl: source?.sourceUrl || `https://nihongokanji.com/?s=${encodeURIComponent(item.char)}`
     }
   })
@@ -181,6 +208,22 @@
           : visibleCharacterHtml
       }
       return visibleCharacterHtml
+    }).join("")
+  }
+
+  function explanationBlocksHtml(item, blocks) {
+    return (blocks || []).map((block) => {
+      if (typeof block === "string") return `<p>${explanationHtml(item, block)}</p>`
+      if (block.type === "formula") return `<p class="shape-formula">${explanationHtml(item, block.text)}</p>`
+      if (block.type === "paragraph") return `<p>${explanationHtml(item, block.text)}</p>`
+      if (block.type === "list") {
+        const tag = block.ordered ? "ol" : "ul"
+        return `<${tag} class="explanation-list">${(block.items || []).map((text) => `<li>${explanationHtml(item, text)}</li>`).join("")}</${tag}>`
+      }
+      if (block.type === "details") {
+        return `<details class="shape-more"><summary>${explanationHtml(item, block.summary)}</summary><div class="shape-more-body">${explanationBlocksHtml(item, block.blocks || block.paragraphs || [])}</div></details>`
+      }
+      return ""
     }).join("")
   }
 
@@ -400,6 +443,10 @@
   }
 
   function readingEntryTemplate(entry) {
+    if (Array.isArray(entry?.examples)) {
+      const examples = entry.examples.map((example) => `<span class="reading-word-line ${example.kind === "sentence" ? "reading-sentence-line" : ""}"><span class="reading-word-japanese">${sourceTextHtml(example.japanese)}</span><span class="reading-word-meaning">${escapeHtml(example.meaning)}</span></span>`).join("")
+      return `<div class="reading-entry"><strong class="reading-entry-reading">${sourceTextHtml(entry.reading)}</strong><div class="reading-word-list">${examples}</div></div>`
+    }
     const text = supportedGlyphText(entry?.text).trim()
     const match = text.match(/^(\S+)\s+(.+)$/u)
     if (!match || /[가-힣]/u.test(match[1])) return `<div class="reading-entry reading-entry-plain">${sourceTextHtml(text)}</div>`
@@ -472,12 +519,26 @@
     const isOn = type === "on"
     const detail = item[`${type}Detail`]
     const label = isOn ? "3. 音読み · 음독 상세" : "4. 訓読み · 훈독 상세"
-    const paragraphs = (detail?.paragraphs || []).map((paragraph) => `<p class="reading-guide">${sourceTextHtml(paragraph)}</p>`).join("")
-    const entries = (detail?.entries || []).map(readingEntryTemplate).join("")
+    const legacyBlocks = [
+      ...(detail?.paragraphs || []).map((text) => ({ type: "paragraph", text })),
+      ...(detail?.entries || []).map((entry) => ({ type: "entry", ...entry }))
+    ]
+    const blocks = Array.isArray(detail?.blocks) ? detail.blocks : legacyBlocks
+    const content = blocks.map((block) => {
+      if (block.type === "heading") return `<h3 class="reading-group-title">${sourceTextHtml(block.text)}</h3>`
+      if (block.type === "subheading") return `<h4 class="reading-subheading">${sourceTextHtml(block.text)}</h4>`
+      if (block.type === "paragraph") return `<p class="reading-guide">${sourceTextHtml(block.text)}</p>`
+      if (block.type === "list") {
+        const tag = block.ordered ? "ol" : "ul"
+        return `<${tag} class="reading-guide-list">${(block.items || []).map((text) => `<li>${sourceTextHtml(text)}</li>`).join("")}</${tag}>`
+      }
+      if (block.type === "imageAlt") return `<p class="reading-image-note">그림 설명 · ${sourceTextHtml(block.text)}</p>`
+      if (block.type === "entry") return readingEntryTemplate(block)
+      return ""
+    }).join("")
     return `<article class="info-card reading-detail-card ${isOn ? "on-reading" : "kun-reading"}">
       <div class="info-label"><span>${label}</span></div>
-      ${paragraphs}
-      ${entries ? `<div class="reading-entry-list">${entries}</div>` : `<p class="no-reading">정식 ${isOn ? "음독" : "훈독"} 상세가 없습니다.</p>`}
+      ${content ? `<div class="reading-detail-content">${content}</div>` : `<p class="no-reading">정식 ${isOn ? "음독" : "훈독"} 상세가 없습니다.</p>`}
     </article>`
   }
 
@@ -542,11 +603,9 @@
     return ITEMS.filter((item) => {
       if (query) {
         const detailText = [
-          ...(item.explanation || []),
-          ...(item.onDetail?.paragraphs || []),
-          ...(item.onDetail?.entries || []).map((entry) => entry.text),
-          ...(item.kunDetail?.paragraphs || []),
-          ...(item.kunDetail?.entries || []).map((entry) => entry.text)
+          ...contentBlockTexts(item.explanation),
+          ...readingDetailTexts(item.onDetail),
+          ...readingDetailTexts(item.kunDetail)
         ]
         return [item.char, item.hun, item.siteMeaning, item.on.join(" "), item.kun.join(" "), item.meanings.join(" "), String(item.id), ...detailText]
           .some((value) => String(value || "").toLowerCase().includes(query))
@@ -654,7 +713,7 @@
         <article class="info-card"><div class="info-label"><span>1. 기본 정보 · 대표 뜻</span></div><p class="info-value">${escapeHtml(koreanMeaning(item))}</p><div class="basic-readings"><p><strong>음독 :</strong> ${escapeHtml(onReadings)}</p><p><strong>훈독 :</strong> ${escapeHtml(kunReadings)}</p></div></article>
         <article class="info-card explanation-card">
           <div class="info-label"><span>2. 한자 모양 해설</span><a class="source-link external-link" data-external-url="${escapeHtml(item.sourceUrl)}" href="${escapeHtml(item.sourceUrl)}" target="_blank" rel="noopener noreferrer">원문 보기 ↗</a></div>
-          <div class="explanation-text">${(item.explanation.length ? item.explanation : [kanjiExplanation(item)]).map((paragraph) => `<p>${explanationHtml(item, paragraph)}</p>`).join("")}</div>
+          <div class="explanation-text">${explanationBlocksHtml(item, item.explanation.length ? item.explanation : [kanjiExplanation(item)])}</div>
         </article>
         ${partDirectoryTemplate()}
         ${partDetailTemplate()}
@@ -997,7 +1056,7 @@
       </section>
       <section class="section">
         <div class="section-head"><h2>데이터 안내</h2></div>
-        <div class="info-card"><p class="subtext">상용한자 범위와 JLPT 학습 순서는 일본어 한자 공부방의 공개 일람을 참고했습니다. 상세 독음·획수·부수는 KANJIDIC2, 구성 요소는 KanjiVG, 한국 훈음은 HanjaDict를 사용했습니다. 사이트 고유 해설과 예문은 포함하지 않았습니다.</p></div>
+        <div class="info-card"><p class="subtext">상용한자 범위·JLPT 학습 순서·한국 훈음·대표 뜻·모양 해설·음훈 상세 예시는 일본어 한자 공부방 원문을 이용 허락 범위에서 오프라인 저장했습니다. 획수·부수는 KANJIDIC2, 구성 요소는 KanjiVG를 사용했습니다.</p></div>
         <button class="btn danger full" style="margin-top:12px" data-action="reset">학습 기록 초기화</button>
       </section>`
   }
@@ -1049,7 +1108,7 @@
     state.contextText = selectedText
     const menu = document.getElementById("textActionMenu")
     if (!menu) return
-    menu.innerHTML = '<button type="button" data-action="copySelection" role="menuitem">복사</button><button type="button" data-action="translateSelection" role="menuitem">번역</button>'
+    menu.innerHTML = '<button type="button" data-action="copySelection" role="menuitem">복사</button><button type="button" data-action="searchSelection" role="menuitem">검색하기</button>'
     const range = selection?.rangeCount ? selection.getRangeAt(0) : null
     const rect = range?.getBoundingClientRect?.()
     const anchorLeft = rect?.width ? rect.left + rect.width / 2 : Number(event.clientX || 12)
@@ -1202,10 +1261,10 @@
       closeTextActionMenu()
       copyText(value).then(() => toast("복사했습니다.")).catch(() => toast("복사하지 못했습니다."))
     }
-    if (action === "translateSelection") {
+    if (action === "searchSelection") {
       const value = state.contextText
       closeTextActionMenu()
-      openExternalUrl(`https://translate.google.com/?sl=auto&tl=ko&text=${encodeURIComponent(value)}`)
+      openExternalUrl(`https://www.google.com/search?q=${encodeURIComponent(value)}`)
     }
     if (action === "toggleListReadings") {
       state.showListReadings = !state.showListReadings
