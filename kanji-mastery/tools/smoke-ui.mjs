@@ -30,6 +30,10 @@ const click = (selector) => {
 }
 const assert = (condition, message) => { if (!condition) throw new Error(message) }
 const text = () => window.document.getElementById("app").textContent
+const rubyPair = (ruby) => ({
+  base: [...ruby.childNodes].filter((node) => node.nodeName !== "RT").map((node) => node.textContent).join(""),
+  reading: ruby.querySelector("rt")?.textContent || ""
+})
 
 assert(text().includes("하루 10자씩"), "홈 화면 렌더링 실패")
 assert(window.document.querySelectorAll(".level-card").length === 5, "JLPT 카드 렌더링 실패")
@@ -63,12 +67,16 @@ assert(window.document.querySelectorAll(".reading-detail-card").length === 2, "�
 assert(text().includes("3. 音読み · 음독 상세") && text().includes("4. 訓読み · 훈독 상세"), "독음 상세 제목 누락")
 assert(text().includes("음독은 ニチ、ジツ입니다. 특별한 구분법은 없습니다."), "한자공부방 음독 원문 누락")
 assert(text().includes("훈독은 ひ、か입니다."), "한자공부방 훈독 원문 누락")
-assert(window.document.querySelector(".reading-entry-reading")?.textContent === "ニチ" && window.document.querySelector(".reading-word-japanese")?.textContent.includes("一日(いちにち") && text().includes("하루"), "독음 원문 표기 또는 읽기 제목 누락")
+const firstOnRuby = window.document.querySelector(".on-reading .reading-word-japanese ruby")
+assert(window.document.querySelector(".reading-entry-reading")?.textContent === "ニチ" && firstOnRuby && rubyPair(firstOnRuby).base === "一日" && rubyPair(firstOnRuby).reading === "いちにち" && text().includes("하루"), "독음 원문 루비 또는 읽기 제목 누락")
 assert(!text().includes("원문 상세"), "중복 원문 상세 링크 잔존")
 assert(!window.document.querySelector("[data-speak]") && !text().includes("문장 듣기") && !text().includes("발음 듣기"), "음성 재생 UI 잔존")
 assert(!text().includes("영문 해석") && text().includes("오늘은 일요일입니다."), "한국어 예문 해석 누락")
 assert(window.document.querySelectorAll(".sentence-japanese ruby").length >= 1 && !window.document.querySelector(".sentence-reading"), "예문 후리가나 표시 실패")
-assert(text().includes("一日(いちにち") && text().includes("하루") && text().includes("三日(みっか") && text().includes("사흘/3일"), "한자공부방 대표 단어 원문 누락")
+const detailRubyPairs = [...window.document.querySelectorAll(".reading-detail-card .reading-word-japanese ruby")].map(rubyPair)
+assert(detailRubyPairs.some(({ base, reading }) => base === "一日" && reading === "いちにち") && text().includes("하루") && detailRubyPairs.some(({ base, reading }) => base === "三日" && reading === "みっか"), "한자공부방 대표 단어 루비 누락")
+assert(!/[\p{Script=Han}々〆ヵヶ0-9０-９]+\([ぁ-ゖァ-ヺー]+\)/u.test(window.document.querySelector(".reading-detail-card")?.textContent || ""), "괄호식 요미가나가 상세에 남아 있습니다")
+assert(window.document.querySelector(".on-reading .reading-word-meaning"), "음독 예문 해석 누락")
 assert(text().includes("日는 “태양”의 모습을 본따 그린 상형문자입니다."), "사이트 원문 한자 설명 렌더링 실패")
 assert(text().includes("“날 일”. 하루, 날, 태양"), "사이트 대표 뜻 렌더링 실패")
 assert(window.document.querySelector(".source-link")?.href === "https://nihongokanji.com/8/", "한자별 원문 링크 누락")
@@ -95,7 +103,8 @@ const searchDetail = (character) => {
   assert(window.document.querySelector(".detail-glyph")?.textContent === character, `${character} 상세 이동 실패`)
 }
 searchDetail("会")
-assert(text().includes("카페에서 친구와 만났다") && !window.document.querySelector(".kun-reading .no-reading"), "会 훈독 문장 예시 또는 빈 상세 문구 오류")
+assert(window.document.querySelector(".kun-reading .reading-sentence-line")?.textContent.includes("カフェ") && !window.document.querySelector(".kun-reading .no-reading"), "会 훈독 문장 예시 또는 빈 상세 문구 오류")
+assert(!window.document.querySelector(".kun-reading .reading-word-meaning"), "훈독 예문 해석이 남아 있습니다")
 searchDetail("時")
 assert(window.document.querySelector(".shape-more") && text().includes("寺의 자세한 유래 더보기") && text().includes("“시간”이라는 뜻의 글자"), "時 접힌 모양 상세 또는 최종 뜻 누락")
 searchDetail("上")
@@ -106,6 +115,11 @@ searchDetail("体")
 assert(window.document.querySelector(".on-reading .reading-guide-list") && window.document.querySelectorAll(".on-reading .reading-sentence-line").length >= 2, "体 음독 목록 또는 문장 렌더링 실패")
 searchDetail("三")
 assert(text().includes("그림 설명 · 三つ指"), "三 훈독 그림 설명 렌더링 실패")
+searchDetail("尽")
+const kunRubyPairs = [...window.document.querySelectorAll(".kun-reading .reading-word-japanese ruby")].map(rubyPair)
+assert(kunRubyPairs.some(({ base, reading }) => base === "心" && reading === "こころ") && kunRubyPairs.some(({ base, reading }) => base === "尽" && reading === "つ"), "훈독 문장 요미가나 루비 변환 실패")
+assert(!window.document.querySelector(".kun-reading .reading-word-meaning"), "훈독 예문 해석 제거 실패")
+assert(/\.kun-reading\s+\.reading-entry\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s.test(fs.readFileSync(path.join(root, "web/styles.css"), "utf8")), "훈독 예문 전체 너비 레이아웃 누락")
 
 const detailSearch = window.document.getElementById("searchInput")
 detailSearch.value = "国"
@@ -130,6 +144,14 @@ window.document.getElementById("searchForm").dispatchEvent(new window.Event("sub
 assert(window.document.querySelector(".detail-glyph")?.textContent === "日", "정확한 한자 검색 상세 이동 실패")
 
 click('[data-action="back"]')
+assert(window.document.getElementById("searchInput")?.value === "日", "상세 뒤 검색어 보존 실패")
+const hardwareBackSearch = window.document.getElementById("searchInput")
+hardwareBackSearch.value = "会"
+hardwareBackSearch.dispatchEvent(new window.Event("input", { bubbles: true }))
+window.document.getElementById("searchForm").dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }))
+window.history.replaceState({ route: "learn" }, "", "#learn")
+window.dispatchEvent(new window.PopStateEvent("popstate", { state: { route: "learn" } }))
+assert(window.document.getElementById("searchInput")?.value === "会", "기기 뒤로가기 검색어 보존 실패")
 const clearInput = window.document.getElementById("searchInput")
 clearInput.value = "날 일"
 clearInput.dispatchEvent(new window.Event("input", { bubbles: true }))

@@ -13,7 +13,7 @@
   function supportedGlyphText(value) {
     return String(value || "")
   }
-  function sourceTextHtml(value, className = "source-glyph") {
+  function sourceGlyphsHtml(value, className = "source-glyph") {
     return [...String(value || "")].map((character) => {
       const paths = GLYPHS[character]
       if (!paths) {
@@ -22,6 +22,18 @@
       }
       return `<svg class="${className}" lang="ja" viewBox="0 0 200 200" role="img" aria-label="${escapeHtml(character)}"><title>${escapeHtml(character)}</title>${paths.map((path) => `<path d="${escapeHtml(path)}"></path>`).join("")}</svg>`
     }).join("")
+  }
+  function sourceTextHtml(value, className = "source-glyph") {
+    const source = String(value || "")
+    const readingPattern = /([\p{Script=Han}々〆ヵヶ0-9０-９]+)\(([ぁ-ゖァ-ヺー]+)\)/gu
+    let html = ""
+    let cursor = 0
+    for (const match of source.matchAll(readingPattern)) {
+      html += sourceGlyphsHtml(source.slice(cursor, match.index), className)
+      html += `<ruby class="source-ruby">${sourceGlyphsHtml(match[1], className)}<rt>${escapeHtml(match[2])}</rt></ruby>`
+      cursor = match.index + match[0].length
+    }
+    return html + sourceGlyphsHtml(source.slice(cursor), className)
   }
   function siteReadings(value, fallback, useFallback = true) {
     const readings = String(value || "").split(/[、,]/u).map((reading) => reading.trim()).filter(Boolean)
@@ -109,8 +121,7 @@
     quizRangeEnd: 20,
     quiz: null,
     contextText: "",
-    learnReturn: null,
-    searchEditing: false
+    learnReturn: null
   }
 
   const emptyStore = () => ({
@@ -339,7 +350,6 @@
 
   function captureLearnView() {
     if (state.route !== "learn") return
-    if (state.searchEditing && state.learnReturn) return
     state.learnReturn = {
       level: state.level,
       status: state.status,
@@ -353,7 +363,7 @@
 
   function restoreLearnView() {
     const snapshot = state.learnReturn || {}
-    Object.assign(state, snapshot, { route: "learn", detailId: null, partDetail: null, learnReturn: null, searchEditing: false })
+    Object.assign(state, snapshot, { route: "learn", detailId: null, partDetail: null, learnReturn: null })
     try {
       sessionStorage.removeItem(LEARN_RETURN_KEY)
     } catch (_) {}
@@ -435,23 +445,23 @@
     return escapeHtml(sentence.japanese)
   }
 
-  function readingWordTemplate(value) {
+  function readingWordTemplate(value, showMeaning = true) {
     const text = String(value || "").trim()
     const match = text.match(/^(.+?)\s+([가-힣].*)$/u)
     if (!match) return `<span class="reading-word-line"><span class="reading-word-japanese">${sourceTextHtml(text)}</span></span>`
-    return `<span class="reading-word-line"><span class="reading-word-japanese">${sourceTextHtml(match[1])}</span><span class="reading-word-meaning">${escapeHtml(match[2])}</span></span>`
+    return `<span class="reading-word-line"><span class="reading-word-japanese">${sourceTextHtml(match[1])}</span>${showMeaning ? `<span class="reading-word-meaning">${escapeHtml(match[2])}</span>` : ""}</span>`
   }
 
-  function readingEntryTemplate(entry) {
+  function readingEntryTemplate(entry, showMeanings = true) {
     if (Array.isArray(entry?.examples)) {
-      const examples = entry.examples.map((example) => `<span class="reading-word-line ${example.kind === "sentence" ? "reading-sentence-line" : ""}"><span class="reading-word-japanese">${sourceTextHtml(example.japanese)}</span><span class="reading-word-meaning">${escapeHtml(example.meaning)}</span></span>`).join("")
+      const examples = entry.examples.map((example) => `<span class="reading-word-line ${example.kind === "sentence" ? "reading-sentence-line" : ""}"><span class="reading-word-japanese">${sourceTextHtml(example.japanese)}</span>${showMeanings && example.meaning ? `<span class="reading-word-meaning">${escapeHtml(example.meaning)}</span>` : ""}</span>`).join("")
       return `<div class="reading-entry"><strong class="reading-entry-reading">${sourceTextHtml(entry.reading)}</strong><div class="reading-word-list">${examples}</div></div>`
     }
     const text = supportedGlyphText(entry?.text).trim()
     const match = text.match(/^(\S+)\s+(.+)$/u)
     if (!match || /[가-힣]/u.test(match[1])) return `<div class="reading-entry reading-entry-plain">${sourceTextHtml(text)}</div>`
     const words = match[2].split(/\s*,\s*/u).map((word) => word.trim()).filter(Boolean)
-    return `<div class="reading-entry"><strong class="reading-entry-reading">${sourceTextHtml(match[1])}</strong><div class="reading-word-list">${words.map(readingWordTemplate).join("")}</div></div>`
+    return `<div class="reading-entry"><strong class="reading-entry-reading">${sourceTextHtml(match[1])}</strong><div class="reading-word-list">${words.map((word) => readingWordTemplate(word, showMeanings)).join("")}</div></div>`
   }
 
   function fallbackContextSentence(item, target) {
@@ -533,7 +543,7 @@
         return `<${tag} class="reading-guide-list">${(block.items || []).map((text) => `<li>${sourceTextHtml(text)}</li>`).join("")}</${tag}>`
       }
       if (block.type === "imageAlt") return `<p class="reading-image-note">그림 설명 · ${sourceTextHtml(block.text)}</p>`
-      if (block.type === "entry") return readingEntryTemplate(block)
+      if (block.type === "entry") return readingEntryTemplate(block, isOn)
       return ""
     }).join("")
     return `<article class="info-card reading-detail-card ${isOn ? "on-reading" : "kun-reading"}">
@@ -1139,8 +1149,6 @@
     const search = document.getElementById("searchInput")
     if (search) {
       search.addEventListener("compositionstart", () => {
-        if (state.route === "learn" && !state.searchEditing) captureLearnView()
-        state.searchEditing = state.route === "learn"
         search.dataset.composing = "true"
       })
       search.addEventListener("compositionend", (event) => {
@@ -1150,10 +1158,6 @@
         if (state.route === "learn") refreshLearnResults()
       })
       search.addEventListener("input", (event) => {
-        if (state.route === "learn" && !state.searchEditing && event.target.value !== state.query) {
-          captureLearnView()
-          state.searchEditing = true
-        }
         state.query = event.target.value
         state.listLimit = 100
         if (event.isComposing || search.dataset.composing === "true") return
@@ -1164,6 +1168,8 @@
     searchForm?.addEventListener("submit", (event) => {
       event.preventDefault()
       const value = search.value.trim()
+      state.query = value
+      state.listLimit = 100
       search.blur()
       const exact = BY_CHAR.get(value)
       if (exact) navigate("detail", { detailId: exact.id })

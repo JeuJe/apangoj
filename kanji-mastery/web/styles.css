@@ -239,11 +239,15 @@ h3 { margin-bottom: 7px; font-size: 15px; }
 .reading-entry { display: grid; grid-template-columns: minmax(50px, auto) 1fr; gap: 12px; align-items: start; margin: 0; padding: 12px 13px; border: 1px solid #dfe3ec; border-radius: 14px; background: white; color: var(--ink-2); font-size: 14px; line-height: 1.65; }
 .reading-entry-reading { color: var(--accent-dark); font-family: "Noto Sans JP", "Noto Sans KR", sans-serif; font-size: 24px; font-weight: 950; line-height: 1.2; }
 .reading-word-list { display: grid; gap: 6px; min-width: 0; }
+.kun-reading .reading-entry { grid-template-columns: minmax(0, 1fr); gap: 9px; }
+.kun-reading .reading-entry-reading, .kun-reading .reading-word-list { width: 100%; min-width: 0; }
 .source-glyph { display: inline-block; width: 1em; height: 1em; vertical-align: -.14em; fill: currentColor; }
+.source-ruby { ruby-align: center; ruby-position: over; white-space: nowrap; }
+.source-ruby rt { color: var(--muted); font-family: "Noto Sans JP", "Noto Sans KR", sans-serif; font-size: .55em; font-weight: 700; line-height: 1; }
 .part-glyph { width: 1.15em; height: 1.15em; vertical-align: -.2em; }
 .reading-word-line { display: flex; flex-wrap: wrap; gap: 7px; align-items: baseline; padding-bottom: 6px; border-bottom: 1px dashed #ece8e1; }
 .reading-word-line:last-child { padding-bottom: 0; border-bottom: 0; }
-.reading-word-japanese { font-family: "Noto Serif JP", "Yu Mincho", serif; font-size: 16px; font-weight: 850; }
+.reading-word-japanese { font-family: "Noto Serif JP", "Yu Mincho", serif; font-size: 16px; font-weight: 850; line-height: 2; }
 .reading-word-meaning { color: var(--muted); font-size: 13px; }
 .reading-sentence-line { display: grid; gap: 3px; align-items: start; }
 .reading-sentence-line .reading-word-meaning { padding-left: 9px; border-left: 3px solid #e5d9ce; }
