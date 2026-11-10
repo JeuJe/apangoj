@@ -445,23 +445,23 @@
     return escapeHtml(sentence.japanese)
   }
 
-  function readingWordTemplate(value, showMeaning = true) {
+  function readingWordTemplate(value) {
     const text = String(value || "").trim()
     const match = text.match(/^(.+?)\s+([가-힣].*)$/u)
     if (!match) return `<span class="reading-word-line"><span class="reading-word-japanese">${sourceTextHtml(text)}</span></span>`
-    return `<span class="reading-word-line"><span class="reading-word-japanese">${sourceTextHtml(match[1])}</span>${showMeaning ? `<span class="reading-word-meaning">${escapeHtml(match[2])}</span>` : ""}</span>`
+    return `<span class="reading-word-line"><span class="reading-word-japanese">${sourceTextHtml(match[1])}</span><span class="reading-word-meaning">${escapeHtml(match[2])}</span></span>`
   }
 
-  function readingEntryTemplate(entry, showMeanings = true) {
+  function readingEntryTemplate(entry) {
     if (Array.isArray(entry?.examples)) {
-      const examples = entry.examples.map((example) => `<span class="reading-word-line ${example.kind === "sentence" ? "reading-sentence-line" : ""}"><span class="reading-word-japanese">${sourceTextHtml(example.japanese)}</span>${showMeanings && example.meaning ? `<span class="reading-word-meaning">${escapeHtml(example.meaning)}</span>` : ""}</span>`).join("")
+      const examples = entry.examples.map((example) => `<span class="reading-word-line ${example.kind === "sentence" ? "reading-sentence-line" : ""}"><span class="reading-word-japanese">${sourceTextHtml(example.japanese)}</span><span class="reading-word-meaning">${escapeHtml(example.meaning)}</span></span>`).join("")
       return `<div class="reading-entry"><strong class="reading-entry-reading">${sourceTextHtml(entry.reading)}</strong><div class="reading-word-list">${examples}</div></div>`
     }
     const text = supportedGlyphText(entry?.text).trim()
     const match = text.match(/^(\S+)\s+(.+)$/u)
     if (!match || /[가-힣]/u.test(match[1])) return `<div class="reading-entry reading-entry-plain">${sourceTextHtml(text)}</div>`
     const words = match[2].split(/\s*,\s*/u).map((word) => word.trim()).filter(Boolean)
-    return `<div class="reading-entry"><strong class="reading-entry-reading">${sourceTextHtml(match[1])}</strong><div class="reading-word-list">${words.map((word) => readingWordTemplate(word, showMeanings)).join("")}</div></div>`
+    return `<div class="reading-entry"><strong class="reading-entry-reading">${sourceTextHtml(match[1])}</strong><div class="reading-word-list">${words.map(readingWordTemplate).join("")}</div></div>`
   }
 
   function fallbackContextSentence(item, target) {
@@ -543,7 +543,7 @@
         return `<${tag} class="reading-guide-list">${(block.items || []).map((text) => `<li>${sourceTextHtml(text)}</li>`).join("")}</${tag}>`
       }
       if (block.type === "imageAlt") return `<p class="reading-image-note">그림 설명 · ${sourceTextHtml(block.text)}</p>`
-      if (block.type === "entry") return readingEntryTemplate(block, isOn)
+      if (block.type === "entry") return readingEntryTemplate(block)
       return ""
     }).join("")
     return `<article class="info-card reading-detail-card ${isOn ? "on-reading" : "kun-reading"}">
@@ -698,7 +698,6 @@
     const item = BY_ID.get(Number(state.detailId)) || ITEMS[0]
     const p = progressOf(item.id)
     const favorite = store.favorites.includes(item.id)
-    const content = studyContent(item)
     const radical = radicalPart(item)
     const radicalData = radicalInfo(radical, item.radical)
     const onReadings = item.on.length ? item.on.join(" · ") : "정식 음독 없음"
@@ -730,13 +729,6 @@
         ${readingDetailTemplate(item, "on")}
         ${readingDetailTemplate(item, "kun")}
       </div>
-      <section class="study-section">
-        <div class="section-head"><h2>예문 · 해석</h2></div>
-        <article class="sentence-card">
-          <p class="sentence-japanese">${sentenceHtml(content.sentence)}</p>
-          <div class="translation"><span>${escapeHtml(content.sentence.translationLabel || "해석")}</span><p>${escapeHtml(content.sentence.translation)}</p></div>
-        </article>
-      </section>
       <div class="detail-actions">
         <button class="btn outline" data-rate="wrong" data-id="${item.id}">다시 볼래요</button>
         <button class="btn primary" data-rate="correct" data-id="${item.id}">알고 있어요</button>

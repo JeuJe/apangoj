@@ -71,8 +71,7 @@ const firstOnRuby = window.document.querySelector(".on-reading .reading-word-jap
 assert(window.document.querySelector(".reading-entry-reading")?.textContent === "ニチ" && firstOnRuby && rubyPair(firstOnRuby).base === "一日" && rubyPair(firstOnRuby).reading === "いちにち" && text().includes("하루"), "독음 원문 루비 또는 읽기 제목 누락")
 assert(!text().includes("원문 상세"), "중복 원문 상세 링크 잔존")
 assert(!window.document.querySelector("[data-speak]") && !text().includes("문장 듣기") && !text().includes("발음 듣기"), "음성 재생 UI 잔존")
-assert(!text().includes("영문 해석") && text().includes("오늘은 일요일입니다."), "한국어 예문 해석 누락")
-assert(window.document.querySelectorAll(".sentence-japanese ruby").length >= 1 && !window.document.querySelector(".sentence-reading"), "예문 후리가나 표시 실패")
+assert(!text().includes("예문 · 해석") && !window.document.querySelector(".sentence-card"), "훈독 상세 아래 독립 예문·해석 섹션 잔존")
 const detailRubyPairs = [...window.document.querySelectorAll(".reading-detail-card .reading-word-japanese ruby")].map(rubyPair)
 assert(detailRubyPairs.some(({ base, reading }) => base === "一日" && reading === "いちにち") && text().includes("하루") && detailRubyPairs.some(({ base, reading }) => base === "三日" && reading === "みっか"), "한자공부방 대표 단어 루비 누락")
 assert(!/[\p{Script=Han}々〆ヵヶ0-9０-９]+\([ぁ-ゖァ-ヺー]+\)/u.test(window.document.querySelector(".reading-detail-card")?.textContent || ""), "괄호식 요미가나가 상세에 남아 있습니다")
@@ -84,8 +83,6 @@ assert(window.document.querySelector(".source-link")?.dataset.externalUrl === "h
 assert(window.document.querySelectorAll(".part-directory-item").length === 156, "일본어 한자 공부방 모양자·부수 일람 누락")
 assert(window.document.getElementById("textActionMenu"), "복사·검색하기 선택 메뉴 누락")
 assert(!text().includes("관련 단어") && !window.document.querySelector(".part-card"), "삭제 대상 컨테이너 잔존")
-assert(window.document.querySelector(".sentence-japanese")?.textContent.includes("今日") && window.document.querySelector(".sentence-japanese")?.textContent.includes("日曜日"), "예문 렌더링 실패")
-assert(text().includes("오늘은 일요일입니다."), "예문 해석 렌더링 실패")
 
 const selectedText = window.getSelection
 window.getSelection = () => ({ toString: () => "日", rangeCount: 0 })
@@ -104,7 +101,7 @@ const searchDetail = (character) => {
 }
 searchDetail("会")
 assert(window.document.querySelector(".kun-reading .reading-sentence-line")?.textContent.includes("カフェ") && !window.document.querySelector(".kun-reading .no-reading"), "会 훈독 문장 예시 또는 빈 상세 문구 오류")
-assert(!window.document.querySelector(".kun-reading .reading-word-meaning"), "훈독 예문 해석이 남아 있습니다")
+assert(window.document.querySelector(".kun-reading .reading-word-meaning")?.textContent.includes("카페에서 친구와 만났다"), "훈독 예문 해석 복구 실패")
 searchDetail("時")
 assert(window.document.querySelector(".shape-more") && text().includes("寺의 자세한 유래 더보기") && text().includes("“시간”이라는 뜻의 글자"), "時 접힌 모양 상세 또는 최종 뜻 누락")
 searchDetail("上")
@@ -118,7 +115,7 @@ assert(text().includes("그림 설명 · 三つ指"), "三 훈독 그림 설명 
 searchDetail("尽")
 const kunRubyPairs = [...window.document.querySelectorAll(".kun-reading .reading-word-japanese ruby")].map(rubyPair)
 assert(kunRubyPairs.some(({ base, reading }) => base === "心" && reading === "こころ") && kunRubyPairs.some(({ base, reading }) => base === "尽" && reading === "つ"), "훈독 문장 요미가나 루비 변환 실패")
-assert(!window.document.querySelector(".kun-reading .reading-word-meaning"), "훈독 예문 해석 제거 실패")
+assert(window.document.querySelector(".kun-reading .reading-word-meaning")?.textContent.includes("마음(정성)을 다하다"), "훈독 예문 해석 누락")
 assert(/\.kun-reading\s+\.reading-entry\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s.test(fs.readFileSync(path.join(root, "web/styles.css"), "utf8")), "훈독 예문 전체 너비 레이아웃 누락")
 
 const detailSearch = window.document.getElementById("searchInput")
