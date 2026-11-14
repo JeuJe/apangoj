@@ -1260,9 +1260,11 @@
       copyText(value).then(() => toast("복사했습니다.")).catch(() => toast("복사하지 못했습니다."))
     }
     if (action === "searchSelection") {
-      const value = state.contextText
+      const value = state.contextText.trim()
       closeTextActionMenu()
-      openExternalUrl(`https://www.google.com/search?q=${encodeURIComponent(value)}`)
+      const item = BY_CHAR.get(value) || [...value].map((character) => BY_CHAR.get(character)).find(Boolean)
+      if (item) navigate("detail", { detailId: item.id })
+      else toast("앱에서 찾을 수 있는 한자가 없습니다.")
     }
     if (action === "toggleListReadings") {
       state.showListReadings = !state.showListReadings

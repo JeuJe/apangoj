@@ -85,12 +85,13 @@ assert(window.document.getElementById("textActionMenu"), "복사·검색하기 �
 assert(!text().includes("관련 단어") && !window.document.querySelector(".part-card"), "삭제 대상 컨테이너 잔존")
 
 const selectedText = window.getSelection
-window.getSelection = () => ({ toString: () => "日", rangeCount: 0 })
+window.getSelection = () => ({ toString: () => "上", rangeCount: 0 })
 window.document.querySelector(".explanation-text p").dispatchEvent(new window.MouseEvent("contextmenu", { bubbles: true, clientX: 100, clientY: 180 }))
 assert(window.document.getElementById("textActionMenu")?.textContent === "복사검색하기", "길게 누르기 복사·검색하기 메뉴 구성 실패")
 assert(!window.document.querySelector('[data-action="translateSelection"]'), "길게 누르기 번역 메뉴 잔존")
 click('[data-action="searchSelection"]')
-assert(openedUrl === "https://www.google.com/search?q=%E6%97%A5", `선택 글자 검색 URL 오류: ${openedUrl}`)
+assert(window.document.querySelector(".detail-glyph")?.textContent === "上", "선택 한자 앱 내 상세 이동 실패")
+assert(openedUrl === "", `선택 한자 검색에서 외부 브라우저가 열렸습니다: ${openedUrl}`)
 window.getSelection = selectedText
 
 const searchDetail = (character) => {
